@@ -20,7 +20,7 @@ export const AppShell = ({
       <div className="min-w-0 flex-1">
         <main
           id="main"
-          className={`mx-auto w-full px-5 py-8 sm:px-8 ${wide ? "max-w-6xl" : "max-w-4xl"}`}
+          className={`mx-auto w-full px-5 py-8 sm:px-8 ${wide ? "max-w-6xl" : "max-w-7xl"}`}
         >
           {children}
         </main>

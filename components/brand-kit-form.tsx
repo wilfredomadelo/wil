@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fieldClassName, FormField } from "@/components/form-field";
 import { brandIndustrySuggestions, brandKinds } from "@/lib/brand-options";
@@ -10,13 +10,44 @@ type BrandKitFormProps = {
   brand: BrandDetail;
 };
 
-type KitSectionId = "identity" | "colors" | "design" | "voice";
+type KitSectionId = "logo" | "identity" | "colors" | "design" | "voice";
 
-const kitSections: Array<{ id: KitSectionId; label: string; index: string }> = [
-  { id: "identity", label: "Identity", index: "01" },
-  { id: "colors", label: "Colors", index: "02" },
-  { id: "design", label: "Design", index: "03" },
-  { id: "voice", label: "Voice", index: "04" },
+const kitSections: Array<{
+  id: KitSectionId;
+  label: string;
+  index: string;
+  description: string;
+}> = [
+  {
+    id: "logo",
+    label: "Logo",
+    index: "01",
+    description: "The mark used in content",
+  },
+  {
+    id: "identity",
+    label: "Identity",
+    index: "02",
+    description: "Name, type, and positioning",
+  },
+  {
+    id: "colors",
+    label: "Colors",
+    index: "03",
+    description: "Primary, secondary, accent",
+  },
+  {
+    id: "design",
+    label: "Design",
+    index: "04",
+    description: "Type and visual rules",
+  },
+  {
+    id: "voice",
+    label: "Voice",
+    index: "05",
+    description: "Tone, copy, guidelines",
+  },
 ];
 
 const toKitInput = (brand: BrandDetail): BrandKitInput => ({
@@ -73,14 +104,21 @@ const ColorField = ({
 export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
   const router = useRouter();
   const [form, setForm] = useState<BrandKitInput>(() => toKitInput(brand));
-  const [activeSection, setActiveSection] = useState<KitSectionId>("identity");
+  const [saved, setSaved] = useState<BrandKitInput>(() => toKitInput(brand));
+  const [activeSection, setActiveSection] = useState<KitSectionId>("logo");
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(saved);
 
   const handleChange = (patch: Partial<BrandKitInput>) => {
     setForm((current) => ({ ...current, ...patch }));
-    setStatus("");
+    setError("");
+  };
+
+  const handleCancel = () => {
+    setForm(saved);
+    setError("");
   };
 
   const handleSelectSection = (sectionId: KitSectionId) => {
@@ -89,10 +127,57 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
     node?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+    setError("");
+    setUploadingLogo(true);
+    try {
+      const body = new FormData();
+      body.append("logo", file);
+      const response = await fetch(`/api/brands/${brand.id}/logo`, {
+        method: "POST",
+        body,
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Could not upload logo.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Could not reach wil. Try again.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    setError("");
+    setUploadingLogo(true);
+    try {
+      const response = await fetch(`/api/brands/${brand.id}/logo`, {
+        method: "DELETE",
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Could not remove logo.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Could not reach wil. Try again.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setStatus("");
     setIsSubmitting(true);
 
     try {
@@ -107,7 +192,7 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
         return;
       }
 
-      setStatus("Kit saved.");
+      setSaved(form);
       router.refresh();
     } catch {
       setError("Could not reach wil. Try again.");
@@ -117,39 +202,144 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-card overflow-hidden rounded-3xl">
-      <div className="grid lg:grid-cols-[200px_minmax(0,1fr)]">
-        <nav
-          aria-label="Kit sections"
-          className="space-y-1 border-b border-line p-4 lg:border-b-0 lg:border-r"
-        >
-          {kitSections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => handleSelectSection(section.id)}
-              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                activeSection === section.id
-                  ? "bg-accent text-[color:var(--button-ink)]"
-                  : "text-ink hover:bg-navy-soft"
-              }`}
+    <div className="space-y-4 pb-28">
+      <form
+        id="brand-kit-form"
+        onSubmit={handleSubmit}
+        className="auth-card rounded-3xl"
+      >
+        <div className="grid lg:grid-cols-[214px_minmax(0,1fr)] lg:items-start">
+          <aside className="sticky top-16 z-10 border-b border-line bg-panel px-4 py-5 lg:top-4 lg:self-start lg:border-b-0 lg:border-r lg:px-5 lg:py-7">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
+                Brand kit
+              </p>
+              <p className="mt-1 text-sm text-muted lg:max-w-[11rem]">
+                Set the rules your content and AI tools should follow.
+              </p>
+            </div>
+            <nav
+              className="mt-5 grid grid-cols-2 gap-1.5 sm:grid-cols-5 lg:grid-cols-1 lg:gap-1"
+              aria-label="Brand kit sections"
             >
-              {section.label}
-              <span className="text-[10px] uppercase tracking-wide opacity-70">
-                {section.index}
-              </span>
-            </button>
-          ))}
-        </nav>
+              {kitSections.map((section) => {
+                const isActive = activeSection === section.id;
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={`${section.label}: ${section.description}`}
+                    onClick={() => handleSelectSection(section.id)}
+                    className={`min-w-0 rounded-xl border px-2.5 py-2.5 text-left transition lg:px-3 lg:py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                      isActive
+                        ? "border-accent bg-navy-soft"
+                        : "border-transparent hover:border-line hover:bg-navy-soft"
+                    }`}
+                  >
+                    <span className="flex items-start gap-2">
+                      <span
+                        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                          isActive
+                            ? "bg-accent text-[color:var(--button-ink)]"
+                            : "bg-navy text-muted"
+                        }`}
+                      >
+                        {section.index}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold text-ink">
+                          {section.label}
+                        </span>
+                        <span className="mt-0.5 hidden text-[11px] leading-snug text-muted lg:block">
+                          {section.description}
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
 
         <div className="min-w-0">
+          <section
+            id="brand-kit-logo"
+            className="scroll-mt-6 space-y-4 border-b border-line p-5 sm:p-7"
+          >
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+                01 · Logo
+              </p>
+              <h2 className="mt-1 font-display text-xl font-extrabold text-ink">
+                Logo
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Upload the mark to keep generated assets on-brand.
+              </p>
+            </div>
+            <div className="flex max-w-3xl flex-col gap-4 rounded-2xl border border-dashed border-line bg-navy-soft/40 p-4 sm:flex-row sm:items-center sm:p-5">
+              {brand.hasLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/brands/${brand.id}/logo?v=${encodeURIComponent(brand.updatedAt)}`}
+                  alt={`${brand.name} logo`}
+                  className="size-20 shrink-0 rounded-xl border border-line bg-navy object-contain"
+                />
+              ) : (
+                <div className="flex size-20 shrink-0 items-center justify-center rounded-xl border border-dashed border-line bg-navy text-xs text-muted">
+                  No logo
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink">
+                  {brand.hasLogo ? `${brand.name} logo` : "No logo uploaded"}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  PNG, JPG, WEBP, or GIF · use a clear mark on a transparent
+                  background when possible.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <label
+                    className={`inline-flex items-center rounded-xl border border-line bg-navy px-3 py-2 text-sm font-semibold text-ink hover:bg-navy-soft focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent ${
+                      uploadingLogo
+                        ? "pointer-events-none cursor-not-allowed opacity-60"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    {uploadingLogo ? "Uploading…" : "Upload logo"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="sr-only"
+                      disabled={uploadingLogo}
+                      aria-label="Upload logo"
+                      onChange={(event) => void handleLogoUpload(event)}
+                    />
+                  </label>
+                  {brand.hasLogo ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveLogo()}
+                      disabled={uploadingLogo}
+                      className="rounded-xl border border-line bg-navy px-3 py-2 text-sm font-semibold text-ink hover:bg-navy-soft disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      aria-label="Remove logo"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section
             id="brand-kit-identity"
             className="scroll-mt-6 space-y-4 border-b border-line p-5 sm:p-7"
           >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
-                01 · Identity
+                02 · Identity
               </p>
               <h2 className="mt-1 font-display text-xl font-extrabold text-ink">
                 Identity
@@ -270,7 +460,7 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
           >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
-                02 · Colors
+                03 · Colors
               </p>
               <h2 className="mt-1 font-display text-xl font-extrabold text-ink">
                 Colors
@@ -307,7 +497,7 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
           >
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
-                03 · Design
+                04 · Design
               </p>
               <h2 className="mt-1 font-display text-xl font-extrabold text-ink">
                 Design & typography
@@ -349,7 +539,7 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
           <section id="brand-kit-voice" className="scroll-mt-6 space-y-4 p-5 sm:p-7">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
-                04 · Voice
+                05 · Voice
               </p>
               <h2 className="mt-1 font-display text-xl font-extrabold text-ink">
                 Voice & text
@@ -406,27 +596,51 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
             </FormField>
           </section>
         </div>
-      </div>
+        </div>
+      </form>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-4 sm:px-7">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="btn-solid rounded-full px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      <div className="fixed inset-x-4 bottom-4 z-20 lg:left-[calc(16rem+1.25rem)] lg:right-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-panel/95 px-4 py-3 shadow-lg backdrop-blur-sm sm:px-5">
+        <p
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+          role="status"
+          aria-live="polite"
         >
-          {isSubmitting ? "Saving…" : "Save kit"}
-        </button>
-        {status ? (
-          <p className="text-sm text-ink" role="status">
-            {status}
-          </p>
-        ) : null}
+          <span
+            className={`size-2 rounded-full ${isDirty ? "bg-amber-500" : "bg-accent"}`}
+            aria-hidden="true"
+          />
+          {isSubmitting
+            ? "Saving changes…"
+            : isDirty
+              ? "Unsaved changes"
+              : "Kit saved"}
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={!isDirty || isSubmitting}
+            className="rounded-full border border-line px-3.5 py-2 text-sm font-semibold text-ink hover:bg-navy-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="brand-kit-form"
+            disabled={!isDirty || isSubmitting}
+            className="btn-solid rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            {isSubmitting ? "Saving…" : "Save changes"}
+          </button>
+        </div>
         {error ? (
-          <p className="text-sm text-red-200" role="alert">
+          <p className="w-full text-sm text-red-200" role="alert">
             {error}
           </p>
         ) : null}
+        </div>
       </div>
-    </form>
+    </div>
   );
 };

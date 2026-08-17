@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
 import { BrandStudio } from "@/components/brand-studio";
-import { fetchFredsFacebookStatus } from "@/lib/freds";
+import {
+  fetchFredsFacebookPages,
+  fetchFredsFacebookStatus,
+} from "@/lib/freds";
 import { getWilAccessToken, getWilBrand } from "@/lib/session";
 import { requireAppUser } from "@/lib/require-app-user";
 
@@ -33,12 +36,15 @@ const BrandPage = async ({ params }: BrandPageProps) => {
   const facebook = token
     ? await fetchFredsFacebookStatus(token)
     : { connected: false, name: null };
+  const pages = token
+    ? await fetchFredsFacebookPages(token).catch(() => [])
+    : [];
   const displayName = user.name?.trim() || user.email || "there";
 
   return (
     <AppShell userName={displayName} userEmail={user.email ?? ""} wide>
       <Suspense fallback={<p className="text-sm text-muted">Loading brand…</p>}>
-        <BrandStudio brand={brand} facebook={facebook} />
+        <BrandStudio brand={brand} facebook={facebook} pages={pages} />
       </Suspense>
     </AppShell>
   );

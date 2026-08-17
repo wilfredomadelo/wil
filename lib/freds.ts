@@ -1,12 +1,17 @@
 import type {
   BrandDetail,
   BrandKitInput,
+  BrandPlanInput,
+  BrandPostInput,
   BrandSocialAccount,
-  BrandSummary,
+  FacebookPageOption,
   FacebookStatus,
+  BrandSummary,
   FredsAuthResponse,
   FredsBrandsResponse,
+  FredsFacebookPagesResponse,
   FredsPersonasResponse,
+  FredsPlanResponse,
   FredsSocialAccountsResponse,
   PersonaSummary,
   WilSubscriber,
@@ -158,6 +163,92 @@ export const deleteFredsBrand = async (
   return { ok: status === 200, error: data.error, status };
 };
 
+export const fetchFredsBrandLogo = async (
+  token: string,
+  brandId: string,
+): Promise<{
+  status: number;
+  body: ArrayBuffer | null;
+  contentType: string;
+}> => {
+  allowLocalHttps();
+  const response = await fetch(
+    `${getFredsApiUrl()}/api/wil/brands/${brandId}/logo`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    return { status: response.status, body: null, contentType: "" };
+  }
+
+  return {
+    status: response.status,
+    body: await response.arrayBuffer(),
+    contentType: response.headers.get("Content-Type") ?? "image/png",
+  };
+};
+
+export const uploadFredsBrandLogo = async (
+  token: string,
+  brandId: string,
+  formData: FormData,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  allowLocalHttps();
+  const response = await fetch(
+    `${getFredsApiUrl()}/api/wil/brands/${brandId}/logo`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+      cache: "no-store",
+    },
+  );
+
+  let data: FredsBrandsResponse = {
+    error: "FREDS returned an unexpected response.",
+  };
+  try {
+    data = (await response.json()) as FredsBrandsResponse;
+  } catch {
+    /* keep fallback */
+  }
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status: response.status,
+  };
+};
+
+export const deleteFredsBrandLogo = async (
+  token: string,
+  brandId: string,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/logo`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status,
+  };
+};
+
 export const createFredsSocialAccount = async (
   token: string,
   brandId: string,
@@ -195,6 +286,197 @@ export const deleteFredsSocialAccount = async (
   return { ok: status === 200, error: data.error, status };
 };
 
+export const updateFredsPost = async (
+  token: string,
+  brandId: string,
+  postId: string,
+  input: BrandPostInput,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/posts/${postId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status,
+  };
+};
+
+export const createFredsPlan = async (
+  token: string,
+  brandId: string,
+  input: BrandPlanInput,
+): Promise<{
+  planId?: string;
+  brand?: BrandDetail;
+  needsAssets?: boolean;
+  error?: string;
+  status: number;
+}> => {
+  const { status, data } = await callFreds<FredsPlanResponse>(
+    `/api/wil/brands/${brandId}/plans`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  return {
+    planId: data.planId,
+    brand: data.brand,
+    needsAssets: data.needsAssets,
+    error: data.error,
+    status,
+  };
+};
+
+export const generateFredsPlanAssets = async (
+  token: string,
+  brandId: string,
+  planId: string,
+  input: { imageModelValue?: string } = {},
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/plans/${planId}/generate-assets`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status,
+  };
+};
+
+export const generateFredsPostAssets = async (
+  token: string,
+  brandId: string,
+  postId: string,
+  input: { imageModelValue?: string; generateMotion?: boolean } = {},
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/posts/${postId}/generate-assets`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ generateMotion: false, ...input }),
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status,
+  };
+};
+
+export const fetchFredsBrandMedia = async (
+  token: string,
+  brandId: string,
+  mediaId: string,
+): Promise<{
+  status: number;
+  body: ArrayBuffer | null;
+  contentType: string;
+}> => {
+  allowLocalHttps();
+  const response = await fetch(
+    `${getFredsApiUrl()}/api/wil/brands/${brandId}/media/${mediaId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    return { status: response.status, body: null, contentType: "" };
+  }
+
+  return {
+    status: response.status,
+    body: await response.arrayBuffer(),
+    contentType: response.headers.get("Content-Type") ?? "image/png",
+  };
+};
+
+export const uploadFredsBrandMedia = async (
+  token: string,
+  brandId: string,
+  formData: FormData,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  allowLocalHttps();
+  const response = await fetch(
+    `${getFredsApiUrl()}/api/wil/brands/${brandId}/media`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+      cache: "no-store",
+    },
+  );
+
+  let data: FredsBrandsResponse = {
+    error: "FREDS returned an unexpected response.",
+  };
+  try {
+    data = (await response.json()) as FredsBrandsResponse;
+  } catch {
+    /* keep fallback */
+  }
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status: response.status,
+  };
+};
+
+export const deleteFredsBrandMedia = async (
+  token: string,
+  brandId: string,
+  mediaId: string,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/media/${mediaId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status,
+  };
+};
+
 export const createFredsBrand = async (
   token: string,
   input: {
@@ -218,6 +500,83 @@ export const createFredsBrand = async (
   return { brand: data.brand, error: data.error, status };
 };
 
+export const fetchFredsFacebookPages = async (
+  token: string,
+): Promise<FacebookPageOption[]> => {
+  const { status, data } = await callFreds<FredsFacebookPagesResponse>(
+    "/api/wil/facebook/pages",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (status !== 200 || !Array.isArray(data.pages)) {
+    return [];
+  }
+
+  return data.pages;
+};
+
+export const regenerateFredsPostPrompt = async (
+  token: string,
+  brandId: string,
+  postId: string,
+  input: {
+    kind: string;
+    title: string;
+    caption: string;
+    imagePrompt: string;
+    imageAspect: string;
+  },
+): Promise<{ imagePrompt?: string; error?: string; status: number }> => {
+  const { status, data } = await callFreds<{
+    imagePrompt?: string;
+    error?: string;
+  }>(`/api/wil/brands/${brandId}/posts/${postId}/regenerate-prompt`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  return { imagePrompt: data.imagePrompt, error: data.error, status };
+};
+
+export const publishFredsPost = async (
+  token: string,
+  brandId: string,
+  postId: string,
+  input: { pageId: string; scheduledAt: string },
+): Promise<{
+  ok: boolean;
+  scheduled?: boolean;
+  error?: string;
+  status: number;
+}> => {
+  const { status, data } = await callFreds<{
+    ok?: boolean;
+    scheduled?: boolean;
+    error?: string;
+  }>(`/api/wil/brands/${brandId}/posts/${postId}/publish`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  return {
+    ok: status === 200 && Boolean(data.ok),
+    scheduled: data.scheduled,
+    error: data.error,
+    status,
+  };
+};
+
 export const fetchFredsFacebookStatus = async (
   token: string,
 ): Promise<FacebookStatus> => {
@@ -236,6 +595,22 @@ export const fetchFredsFacebookStatus = async (
   }
 
   return { connected: data.connected, name: data.name ?? null };
+};
+
+export const disconnectFredsFacebook = async (
+  token: string,
+): Promise<{ ok: boolean; error?: string; status: number }> => {
+  const { status, data } = await callFreds<{ error?: string }>(
+    "/api/wil/facebook/disconnect",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return { ok: status === 200, error: data.error, status };
 };
 
 export const fetchFredsPersonas = async (

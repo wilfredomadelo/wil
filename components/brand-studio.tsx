@@ -8,11 +8,15 @@ import { BrandGuidePanel } from "@/components/brand-guide-panel";
 import { BrandKitForm } from "@/components/brand-kit-form";
 import { BrandPlanPanel } from "@/components/brand-plan-panel";
 import { BrandSocialPanel } from "@/components/brand-social-panel";
-import type { BrandDetail, FacebookStatus } from "@/lib/types";
+import {
+  buildImageModelValue,
+} from "@/lib/plan-options";
+import type { BrandDetail, FacebookPageOption, FacebookStatus } from "@/lib/types";
 
 type BrandStudioProps = {
   brand: BrandDetail;
   facebook: FacebookStatus;
+  pages: FacebookPageOption[];
 };
 
 const tabs = [
@@ -28,7 +32,7 @@ type TabId = (typeof tabs)[number]["id"];
 const isTabId = (value: string | null): value is TabId =>
   tabs.some((tab) => tab.id === value);
 
-export const BrandStudio = ({ brand, facebook }: BrandStudioProps) => {
+export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = isTabId(searchParams.get("tab")) ? searchParams.get("tab")! : "kit";
@@ -96,8 +100,25 @@ export const BrandStudio = ({ brand, facebook }: BrandStudioProps) => {
           facebook={facebook}
         />
       ) : null}
-      {tab === "calendar" ? <BrandCalendarPanel posts={brand.posts} /> : null}
-      {tab === "plans" ? <BrandPlanPanel plans={brand.plans} /> : null}
+      {tab === "calendar" ? (
+        <BrandCalendarPanel
+          brandId={brand.id}
+          posts={brand.posts}
+          pages={pages}
+        />
+      ) : null}
+      {tab === "plans" ? (
+        <BrandPlanPanel
+          brandId={brand.id}
+          hasLogo={brand.hasLogo}
+          plans={brand.plans}
+          pages={pages}
+          defaultImageAi={buildImageModelValue(
+            brand.imageProvider,
+            brand.imageModel,
+          )}
+        />
+      ) : null}
       {tab === "guide" ? <BrandGuidePanel /> : null}
     </div>
   );

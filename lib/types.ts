@@ -37,6 +37,22 @@ export type BrandSocialAccount = {
   updatedAt: string;
 };
 
+export type FacebookPageOption = {
+  id: string;
+  name: string;
+};
+
+export type BrandPostMedia = {
+  id: string;
+  type: string;
+  mimeType: string;
+  bytes: number;
+  fileName: string;
+  caption: string;
+  url: string;
+  createdAt: string;
+};
+
 export type BrandPost = {
   id: string;
   planId: string | null;
@@ -44,9 +60,31 @@ export type BrandPost = {
   kind: string;
   title: string;
   caption: string;
+  imagePrompt: string;
+  imageAspect: string;
   platform: string;
   status: string;
   plannedAt: string | null;
+  pageId: string | null;
+  pageName: string;
+  hashtags: string[];
+  notes: string;
+  createdAt: string | null;
+  media?: BrandPostMedia[];
+};
+
+export type BrandPostInput = {
+  kind: string;
+  title: string;
+  caption: string;
+  imagePrompt: string;
+  imageAspect?: string;
+  hashtags: string[];
+  notes: string;
+  pageId?: string | null;
+  pageName?: string;
+  plannedAt?: string | null;
+  imageModelValue?: string;
 };
 
 export type BrandPlan = {
@@ -60,6 +98,7 @@ export type BrandPlan = {
   videoCount: number;
   infographicCount: number;
   status: string;
+  errorMessage?: string;
   createdAt: string;
   posts: BrandPost[];
 };
@@ -74,6 +113,8 @@ export type BrandDetail = BrandSummary & {
   guidelines: string;
   designNotes: string;
   typographyNotes: string;
+  imageProvider?: string;
+  imageModel?: string;
   socialAccounts: BrandSocialAccount[];
   plans: BrandPlan[];
   posts: BrandPost[];
@@ -98,6 +139,29 @@ export type BrandKitInput = {
   accentColor: string;
 };
 
+export type BrandPlanInput = {
+  name: string;
+  days: number;
+  postsPerDay: number;
+  platforms: string[];
+  startDate: string;
+  brief: string;
+  mix: {
+    text: number;
+    image: number;
+    video: number;
+    infographic: number;
+  };
+  imageModelValue?: string;
+};
+
+export type FredsPlanResponse = {
+  planId?: string;
+  brand?: BrandDetail;
+  needsAssets?: boolean;
+  error?: string;
+};
+
 export type FredsBrandsResponse = {
   brands?: BrandSummary[];
   brand?: BrandDetail | BrandSummary;
@@ -113,6 +177,12 @@ export type FredsSocialAccountsResponse = {
 export type FacebookStatus = {
   connected: boolean;
   name: string | null;
+  error?: string;
+};
+
+export type FredsFacebookPagesResponse = {
+  connected?: boolean;
+  pages?: FacebookPageOption[];
   error?: string;
 };
 

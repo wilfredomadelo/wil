@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
+import { FacebookLogoutButton } from "@/components/facebook-logout-button";
 import { fetchFredsFacebookStatus } from "@/lib/freds";
 import { getWilAccessToken } from "@/lib/session";
 import { requireAppUser } from "@/lib/require-app-user";
@@ -47,6 +48,9 @@ const FacebookPage = async ({ searchParams }: FacebookPageProps) => {
             <p className="mt-2 text-sm text-muted">
               {status.name || "Facebook account linked."}
             </p>
+            <div className="mt-5">
+              <FacebookLogoutButton redirectTo="/socials/facebook" />
+            </div>
           </div>
         ) : (
           <div className="auth-card rounded-3xl p-6">
