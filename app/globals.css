@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #000000;
+  --navy-soft: #0b1224;
+  --ink: #f5f7fb;
+  --muted: #9aa3b5;
+  --line: #1c2438;
+  --panel: #0e1528;
+  --background: var(--navy);
+  --foreground: var(--ink);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-navy: var(--navy);
+  --color-navy-soft: var(--navy-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-panel: var(--panel);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background:
+    radial-gradient(900px 480px at 80% 10%, rgba(255, 255, 255, 0.06), transparent 55%),
+    radial-gradient(700px 360px at 12% 0%, rgba(140, 160, 210, 0.08), transparent 50%),
+    var(--navy);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+.btn-solid {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.btn-solid:hover {
+  background-color: #e8e8e8;
+  color: #000000;
+}
+
+.mascot-track {
+  transform-style: preserve-3d;
+  transition: transform 180ms ease-out;
+  will-change: transform;
+}
+
+.mascot-bob {
+  animation: mascot-bob 3.4s ease-in-out infinite;
+  transform-origin: 70% 18%;
+}
+
+.mascot-hop .mascot-bob {
+  animation: mascot-hop 520ms ease-out;
+}
+
+@keyframes mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  40% {
+    transform: translateY(-10px) rotate(2.4deg);
+  }
+  70% {
+    transform: translateY(-4px) rotate(-1.6deg);
+  }
+}
+
+@keyframes mascot-hop {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-28px) scale(1.04);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-track {
+    transition: none;
+  }
+
+  .mascot-bob,
+  .mascot-hop .mascot-bob {
+    animation: none;
+  }
+}
