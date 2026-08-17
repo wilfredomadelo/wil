@@ -12,22 +12,18 @@ type CheckoutFormProps = {
   planName: string;
   userName: string;
   userEmail: string;
+  publicKey: string;
 };
 
 type PaymongoErrorBody = {
   errors?: Array<{ detail?: string }>;
 };
 
-const paymongoPublicKey = () =>
-  (process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY ?? "").trim();
-
-const publicAuth = () => {
-  const key = paymongoPublicKey();
-  return `Basic ${btoa(`${key}:`)}`;
-};
+const publicAuth = (publicKey: string) => `Basic ${btoa(`${publicKey}:`)}`;
 
 const paymongoPublicPost = async (
   path: string,
+  publicKey: string,
   body: unknown,
 ): Promise<{ status: number; data: Record<string, unknown> }> => {
   const response = await fetch(`https://api.paymongo.com/v1${path}`, {
@@ -35,7 +31,7 @@ const paymongoPublicPost = async (
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      Authorization: publicAuth(),
+      Authorization: publicAuth(publicKey),
     },
     body: JSON.stringify(body),
   });
@@ -58,6 +54,7 @@ export const CheckoutForm = ({
   planName,
   userName,
   userEmail,
+  publicKey,
 }: CheckoutFormProps) => {
   const router = useRouter();
   const href = useAppHref();
@@ -96,6 +93,7 @@ export const CheckoutForm = ({
   ) => {
     const { status, data } = await paymongoPublicPost(
       `/payment_intents/${checkout.paymentIntentId}/attach`,
+      publicKey,
       {
         data: {
           attributes: {
@@ -139,7 +137,7 @@ export const CheckoutForm = ({
   const handleCardPay = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    if (!paymongoPublicKey()) {
+    if (!publicKey) {
       setError("PayMongo public key is not set on wil.");
       return;
     }
@@ -152,7 +150,10 @@ export const CheckoutForm = ({
       }
 
       const number = cardNumber.replace(/\s+/g, "");
-      const { status, data } = await paymongoPublicPost("/payment_methods", {
+      const { status, data } = await paymongoPublicPost(
+        "/payment_methods",
+        publicKey,
+        {
         data: {
           attributes: {
             type: "card",
@@ -192,7 +193,7 @@ export const CheckoutForm = ({
 
   const handleMayaPay = async () => {
     setError("");
-    if (!paymongoPublicKey()) {
+    if (!publicKey) {
       setError("PayMongo public key is not set on wil.");
       return;
     }
@@ -204,7 +205,10 @@ export const CheckoutForm = ({
         return;
       }
 
-      const { status, data } = await paymongoPublicPost("/payment_methods", {
+      const { status, data } = await paymongoPublicPost(
+        "/payment_methods",
+        publicKey,
+        {
         data: {
           attributes: {
             type: "paymaya",

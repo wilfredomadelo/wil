@@ -42,6 +42,7 @@ const CheckoutPage = async ({ searchParams }: CheckoutPageProps) => {
           planName={planDisplayName(plan)}
           userName={displayName}
           userEmail={email}
+          publicKey={(process.env.PUBLIC_PAYMONGO_PUBLIC_KEY ?? "").trim()}
         />
       </div>
     </div>
