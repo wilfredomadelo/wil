@@ -55,6 +55,29 @@ export const BrandStudio = ({
     });
   };
 
+  const pageOptions = (() => {
+    const byId = new Map<string, FacebookPageOption>();
+    for (const row of brand.pageBrands ?? []) {
+      if (!row.pageId) {
+        continue;
+      }
+      byId.set(row.pageId, {
+        id: row.pageId,
+        name: row.pageName || row.pageId,
+      });
+    }
+    for (const page of pages) {
+      if (!page.id) {
+        continue;
+      }
+      byId.set(page.id, {
+        id: page.id,
+        name: page.name || page.id,
+      });
+    }
+    return [...byId.values()];
+  })();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -105,7 +128,7 @@ export const BrandStudio = ({
       </div>
 
       {tab === "kit" ? (
-        <BrandKitForm brand={brand} facebook={facebook} pages={pages} />
+        <BrandKitForm brand={brand} facebook={facebook} pages={pageOptions} />
       ) : null}
       {tab === "social" ? (
         <BrandSocialPanel
@@ -126,7 +149,7 @@ export const BrandStudio = ({
               : null;
             return plan?.status !== "ARCHIVED";
           })}
-          pages={pages}
+          pages={pageOptions}
         />
       ) : null}
       {tab === "plans" ? (
@@ -134,7 +157,7 @@ export const BrandStudio = ({
           brandId={brand.id}
           hasLogo={brand.hasLogo}
           plans={brand.plans}
-          pages={pages}
+          pages={pageOptions}
           defaultImageAi={buildImageModelValue(
             brand.imageProvider,
             brand.imageModel,

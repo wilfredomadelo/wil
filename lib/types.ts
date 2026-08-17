@@ -11,6 +11,7 @@ export type WilSubscriptionStatusId =
 export type WilPlanLimits = {
   maxBrands: number;
   maxPlanDays: number;
+  maxPostsPerMonth: number;
   maxAiImagesPerMonth: number;
 };
 
@@ -36,6 +37,7 @@ export type WilCatalogPlan = {
 export type WilBillingUsage = {
   brands: { used: number; max: number };
   planDays: { max: number };
+  posts: { used: number; max: number };
   aiImages: { used: number; max: number };
 };
 
@@ -66,7 +68,8 @@ export const DEFAULT_WIL_BILLING: WilSubscriberBilling = {
   limits: {
     maxBrands: 1,
     maxPlanDays: 7,
-    maxAiImagesPerMonth: 20,
+    maxPostsPerMonth: 30,
+    maxAiImagesPerMonth: 2,
   },
 };
 

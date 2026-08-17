@@ -12,10 +12,17 @@ export const FALLBACK_PRICING_CATALOG: WilCatalogPlan[] = [
     features: [
       "1 brand",
       "Plans up to 7 days",
-      "20 AI images per month",
+      "30 posts generated per month",
+      "Unlimited Pollinations, Cloudflare, and Hugging Face images",
+      "2 Gemini images per month",
       "Facebook connect and publish",
     ],
-    limits: { maxBrands: 1, maxPlanDays: 7, maxAiImagesPerMonth: 20 },
+    limits: {
+      maxBrands: 1,
+      maxPlanDays: 7,
+      maxPostsPerMonth: 30,
+      maxAiImagesPerMonth: 2,
+    },
   },
   {
     id: "STARTER",
@@ -23,15 +30,22 @@ export const FALLBACK_PRICING_CATALOG: WilCatalogPlan[] = [
     amount: 49900,
     currency: "PHP",
     interval: "month",
-    description: "More brands, longer plans, and a larger AI image allowance.",
+    description: "More brands, longer plans, and a larger post-generation allowance.",
     features: [
       "3 brands",
       "Plans up to 14 days",
-      "80 AI images per month",
+      "150 posts generated per month",
+      "Unlimited Pollinations, Cloudflare, and Hugging Face images",
+      "75 Gemini images per month",
       "Gemini image models",
       "Facebook connect and publish",
     ],
-    limits: { maxBrands: 3, maxPlanDays: 14, maxAiImagesPerMonth: 80 },
+    limits: {
+      maxBrands: 3,
+      maxPlanDays: 14,
+      maxPostsPerMonth: 150,
+      maxAiImagesPerMonth: 75,
+    },
   },
   {
     id: "PRO",
@@ -43,11 +57,18 @@ export const FALLBACK_PRICING_CATALOG: WilCatalogPlan[] = [
     features: [
       "8 brands",
       "Plans up to 30 days",
-      "250 AI images per month",
+      "400 posts generated per month",
+      "Unlimited Pollinations, Cloudflare, and Hugging Face images",
+      "200 Gemini images per month",
       "Gemini image models",
       "Facebook connect and publish",
     ],
-    limits: { maxBrands: 8, maxPlanDays: 30, maxAiImagesPerMonth: 250 },
+    limits: {
+      maxBrands: 8,
+      maxPlanDays: 30,
+      maxPostsPerMonth: 400,
+      maxAiImagesPerMonth: 200,
+    },
   },
 ];
 

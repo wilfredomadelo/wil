@@ -1234,7 +1234,7 @@ export const BrandPlanPanel = ({
               <FormField
                 htmlFor={`postImageAi-${post.id}`}
                 label="Image AI"
-                hint="Model used for stills."
+                hint="Quota-free except Gemini."
               >
                 <ImageAiSelect
                   id={`postImageAi-${post.id}`}
@@ -1872,7 +1872,7 @@ export const BrandPlanPanel = ({
           <FormField
             htmlFor="planImageAi"
             label="Image AI"
-            hint="Creates IMAGE / VIDEO / INFOGRAPHIC stills for this plan."
+            hint="Pollinations, Cloudflare, and Hugging Face stills are unlimited. Gemini uses your monthly image allowance."
           >
             <ImageAiSelect
               id="planImageAi"

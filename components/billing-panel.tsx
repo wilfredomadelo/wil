@@ -119,7 +119,10 @@ export const BillingPanel = ({ snapshot }: BillingPanelProps) => {
             Plan length: up to {usage.planDays.max} days
           </p>
           <p className="text-sm text-muted">
-            AI images this month: {usage.aiImages.used} / {usage.aiImages.max}
+            Posts generated this month: {usage.posts.used} / {usage.posts.max}
+          </p>
+          <p className="text-sm text-muted">
+            Gemini images this month: {usage.aiImages.used} / {usage.aiImages.max}
           </p>
         </div>
       ) : null}

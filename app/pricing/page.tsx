@@ -35,7 +35,7 @@ const PricingPage = async () => {
         <PricingView
           eyebrow="Pricing"
           title="Plans for wil"
-          description="Start free. Upgrade when you need more brands, longer content plans, and more AI images. Billed monthly in PHP via PayMongo."
+          description="Start free. Upgrade when you need more brands, longer content plans, and more generated posts. Billed monthly in PHP via PayMongo."
           catalog={catalog}
           signedIn={false}
         />

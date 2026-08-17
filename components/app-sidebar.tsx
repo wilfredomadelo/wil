@@ -101,6 +101,13 @@ export const AppSidebar = ({ userName, userEmail, homeHref }: AppSidebarProps) =
           Brands
         </Link>
         <Link
+          href={personasHref}
+          onClick={handleClose}
+          className={navClass(pathname === personasHref)}
+        >
+          Personas
+        </Link>
+        <Link
           href={pricingHref}
           onClick={handleClose}
           className={navClass(pathname === pricingHref)}
@@ -113,13 +120,6 @@ export const AppSidebar = ({ userName, userEmail, homeHref }: AppSidebarProps) =
           className={navClass(pathname.startsWith(billingHref))}
         >
           Billing
-        </Link>
-        <Link
-          href={personasHref}
-          onClick={handleClose}
-          className={navClass(pathname === personasHref)}
-        >
-          Personas
         </Link>
       </nav>
       <div className="border-t border-line px-4 py-4">
