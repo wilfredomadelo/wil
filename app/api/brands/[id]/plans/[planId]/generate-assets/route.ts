@@ -30,7 +30,10 @@ export const POST = async (request: NextRequest, { params }: Params) => {
 
     if (!result.brand) {
       return NextResponse.json(
-        { error: result.error ?? "Could not generate assets." },
+        {
+          error: result.error ?? "Could not generate assets.",
+          ...(result.code ? { code: result.code } : {}),
+        },
         { status: result.status === 200 ? 502 : result.status },
       );
     }

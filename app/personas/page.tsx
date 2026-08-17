@@ -1,23 +1,7 @@
-import type { Metadata } from "next";
-import { AppShell } from "@/components/app-shell";
-import { PersonaWorkspace } from "@/components/persona-workspace";
-import { getWilPersonas } from "@/lib/session";
-import { requireAppUser } from "@/lib/require-app-user";
+import { redirectToAppPath } from "@/lib/redirect-to-app";
 
-export const metadata: Metadata = {
-  title: "Personas — wil",
+const PersonasRedirectPage = async () => {
+  await redirectToAppPath("/personas");
 };
 
-const PersonasPage = async () => {
-  const user = await requireAppUser();
-  const personas = await getWilPersonas();
-  const displayName = user.name?.trim() || user.email || "there";
-
-  return (
-    <AppShell userName={displayName} userEmail={user.email ?? ""}>
-      <PersonaWorkspace personas={personas} />
-    </AppShell>
-  );
-};
-
-export default PersonasPage;
+export default PersonasRedirectPage;

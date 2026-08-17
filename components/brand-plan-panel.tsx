@@ -1,15 +1,17 @@
 "use client";
 
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAppHref } from "@/components/app-base-path";
 import { fieldClassName, FormField } from "@/components/form-field";
 import { MediaPreview } from "@/components/media-preview";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { Modal } from "@/components/modal";
 import { BrandPostFeed } from "@/components/brand-post-feed";
+import { UpgradeAlert } from "@/components/upgrade-alert";
 import {
   BRAND_CONTENT_KINDS,
   DEFAULT_IMAGE_AI,
-  IMAGE_AI_GROUPS,
   IMAGE_AI_MODELS,
   IMAGE_ASPECTS,
   MAX_BRAND_POST_IMAGES,
@@ -37,11 +39,29 @@ type BrandPlanPanelProps = {
   plans: BrandPlan[];
   pages: FacebookPageOption[];
   defaultImageAi: string;
+  maxPlanDays?: number;
+  billingPlan?: "FREE" | "STARTER" | "PRO";
 };
 
 type PostSort = "scheduled" | "created";
 type PostViewMode = "list" | "single";
 type KindFilter = "all" | "TEXT" | "IMAGE" | "VIDEO" | "INFOGRAPHIC";
+
+const KIND_VALUES = new Set(["TEXT", "IMAGE", "VIDEO", "INFOGRAPHIC"]);
+
+const parseKindFilter = (value: string | null): KindFilter => {
+  const raw = value?.trim().toUpperCase() ?? "";
+  return KIND_VALUES.has(raw) ? (raw as KindFilter) : "all";
+};
+
+const parsePostSort = (value: string | null): PostSort =>
+  value?.trim().toLowerCase() === "created" ? "created" : "scheduled";
+
+const parsePostViewMode = (value: string | null): PostViewMode =>
+  value?.trim().toLowerCase() === "single" ? "single" : "list";
+
+const isArchivedPlan = (plan: BrandPlan) => plan.status === "ARCHIVED";
+const isArchivedPost = (post: BrandPost) => post.status === "ARCHIVED";
 
 type PostEdit = {
   kind: string;
@@ -145,30 +165,43 @@ const ImageAiSelect = ({
   value,
   onChange,
   ariaLabel,
+  allowGemini,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
-}) => (
-  <select
-    id={id}
-    value={value}
-    onChange={(event) => onChange(event.target.value)}
-    className={fieldClassName}
-    aria-label={ariaLabel}
-  >
-    {IMAGE_AI_GROUPS.map((group) => (
-      <optgroup key={group} label={group}>
-        {IMAGE_AI_MODELS.filter((item) => item.group === group).map((item) => (
-          <option key={item.value} value={item.value}>
-            {item.label}
-          </option>
-        ))}
-      </optgroup>
-    ))}
-  </select>
-);
+  allowGemini: boolean;
+}) => {
+  const models = allowGemini
+    ? IMAGE_AI_MODELS
+    : IMAGE_AI_MODELS.filter((item) => item.group !== "Google");
+  const groups = [...new Set(models.map((item) => item.group))];
+  const selected =
+    models.some((item) => item.value === value) ? value : DEFAULT_IMAGE_AI;
+
+  return (
+    <select
+      id={id}
+      value={selected}
+      onChange={(event) => onChange(event.target.value)}
+      className={fieldClassName}
+      aria-label={ariaLabel}
+    >
+      {groups.map((group) => (
+        <optgroup key={group} label={group}>
+          {models
+            .filter((item) => item.group === group)
+            .map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+};
 
 export const BrandPlanPanel = ({
   brandId,
@@ -176,19 +209,32 @@ export const BrandPlanPanel = ({
   plans,
   pages,
   defaultImageAi,
+  maxPlanDays = MAX_PLAN_DAYS,
+  billingPlan = "FREE",
 }: BrandPlanPanelProps) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const appHref = useAppHref();
+  const brandHref = appHref(`/brands/${brandId}`);
+  const planDayMax = Math.min(MAX_PLAN_DAYS, Math.max(MIN_PLAN_DAYS, maxPlanDays));
+  const kindFilter = parseKindFilter(searchParams.get("kind"));
+  const postSort = parsePostSort(searchParams.get("sort"));
+  const postViewMode = parsePostViewMode(searchParams.get("mode"));
+  const showArchived = searchParams.get("archived") === "1";
+  const planParam = searchParams.get("plan")?.trim() ?? "";
+  const showAllPlans = !planParam || planParam === "all";
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState<PlanForm>(() => ({
-    ...buildForm(hasLogo),
-    imageModelValue: defaultImageAi,
-  }));
+  const [form, setForm] = useState<PlanForm>(() => {
+    const initial = buildForm(hasLogo);
+    const days = Math.min(initial.days, Math.min(MAX_PLAN_DAYS, Math.max(MIN_PLAN_DAYS, maxPlanDays)));
+    return {
+      ...initial,
+      days,
+      imageModelValue: defaultImageAi,
+      ...defaultBrandContentMix(planTotalPosts(days, initial.postsPerDay), !hasLogo),
+    };
+  });
   const [planSearch, setPlanSearch] = useState("");
-  const [showAllPlans, setShowAllPlans] = useState(true);
-  const [planId, setPlanId] = useState(plans[0]?.id ?? "");
-  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
-  const [postSort, setPostSort] = useState<PostSort>("scheduled");
-  const [postViewMode, setPostViewMode] = useState<PostViewMode>("list");
   const [singleIndex, setSingleIndex] = useState(0);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<PostEdit | null>(null);
@@ -201,11 +247,50 @@ export const BrandPlanPanel = ({
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<BrandPostMedia | null>(null);
   const [postError, setPostError] = useState("");
+  const [postErrorCode, setPostErrorCode] = useState("");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
+  const [confirmSpec, setConfirmSpec] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    busyLabel: string;
+    tone: "default" | "danger";
+    run: () => Promise<void>;
+  } | null>(null);
+  const [confirmError, setConfirmError] = useState("");
+  const allowGemini = billingPlan !== "FREE";
+  const safeImageModelValue = (value: string) =>
+    allowGemini || !value.startsWith("gemini:") ? value : DEFAULT_IMAGE_AI;
 
   const total = planTotalPosts(form.days, form.postsPerDay);
   const mixSum = form.text + form.image + form.video + form.infographic;
+
+  const setQueryPatch = (patch: Record<string, string | null | undefined>) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("tab", "plans");
+    for (const [key, raw] of Object.entries(patch)) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      const omitDefault =
+        !value ||
+        (key === "kind" && value === "all") ||
+        (key === "sort" && value === "scheduled") ||
+        (key === "mode" && value === "list") ||
+        (key === "plan" && value === "all") ||
+        (key === "archived" && value !== "1");
+      if (omitDefault) {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
+    }
+    const query = next.toString();
+    router.replace(query ? `${brandHref}?${query}` : brandHref, {
+      scroll: false,
+    });
+  };
 
   const sorted = useMemo(
     () =>
@@ -216,17 +301,29 @@ export const BrandPlanPanel = ({
     [plans],
   );
 
+  const scopedPlans = useMemo(
+    () =>
+      sorted.filter((plan) =>
+        showArchived
+          ? isArchivedPlan(plan) || plan.posts.some(isArchivedPost)
+          : !isArchivedPlan(plan),
+      ),
+    [showArchived, sorted],
+  );
+
   const filteredPlans = useMemo(() => {
     const query = planSearch.trim().toLowerCase();
     if (!query) {
-      return sorted;
+      return scopedPlans;
     }
-    return sorted.filter((plan) =>
+    return scopedPlans.filter((plan) =>
       `${planLabel(plan)} ${plan.brief}`.toLowerCase().includes(query),
     );
-  }, [planSearch, sorted]);
+  }, [planSearch, scopedPlans]);
 
-  const selected = sorted.find((plan) => plan.id === planId) ?? sorted[0] ?? null;
+  const selected =
+    filteredPlans.find((plan) => plan.id === planParam) ??
+    (!showAllPlans ? filteredPlans[0] ?? null : null);
 
   const displayPosts = useMemo(() => {
     const sourcePlans = showAllPlans
@@ -237,6 +334,13 @@ export const BrandPlanPanel = ({
     const rows: BrandPost[] = [];
     for (const plan of sourcePlans) {
       for (const post of plan.posts) {
+        if (showArchived) {
+          if (!isArchivedPlan(plan) && !isArchivedPost(post)) {
+            continue;
+          }
+        } else if (isArchivedPost(post)) {
+          continue;
+        }
         if (kindFilter !== "all" && post.kind !== kindFilter) {
           continue;
         }
@@ -258,7 +362,7 @@ export const BrandPlanPanel = ({
       return aTime - bTime;
     });
     return rows;
-  }, [filteredPlans, kindFilter, postSort, selected, showAllPlans]);
+  }, [filteredPlans, kindFilter, postSort, selected, showAllPlans, showArchived]);
 
   const safeSingleIndex =
     displayPosts.length === 0
@@ -276,17 +380,32 @@ export const BrandPlanPanel = ({
   }, [displayPosts]);
 
   const handleScaleMix = (days: number, postsPerDay: number) => {
+    const nextDays = Math.min(planDayMax, Math.max(MIN_PLAN_DAYS, days));
     setForm((current) => ({
       ...current,
-      days,
+      days: nextDays,
       postsPerDay,
-      ...defaultBrandContentMix(planTotalPosts(days, postsPerDay), !hasLogo),
+      ...defaultBrandContentMix(
+        planTotalPosts(nextDays, postsPerDay),
+        !hasLogo,
+      ),
     }));
   };
 
   const handleOpenModal = () => {
     setError("");
-    setForm({ ...buildForm(hasLogo), imageModelValue: defaultImageAi });
+    setErrorCode("");
+    const initial = buildForm(hasLogo);
+    const days = Math.min(initial.days, planDayMax);
+    setForm({
+      ...initial,
+      days,
+      imageModelValue: defaultImageAi,
+      ...defaultBrandContentMix(
+        planTotalPosts(days, initial.postsPerDay),
+        !hasLogo,
+      ),
+    });
     setIsModalOpen(true);
   };
 
@@ -311,6 +430,7 @@ export const BrandPlanPanel = ({
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setErrorCode("");
     if (form.platforms.length < 1) {
       setError("Select at least one platform.");
       return;
@@ -337,21 +457,22 @@ export const BrandPlanPanel = ({
             video: form.video,
             infographic: form.infographic,
           },
-          imageModelValue: form.imageModelValue,
+          imageModelValue: safeImageModelValue(form.imageModelValue),
         }),
       });
       const data = (await response.json()) as {
         error?: string;
+        code?: string;
         planId?: string;
         needsAssets?: boolean;
       };
       if (!response.ok || !data.planId) {
         setError(data.error ?? "Could not generate the plan.");
+        setErrorCode(data.code ?? "");
         return;
       }
 
-      setPlanId(data.planId);
-      setShowAllPlans(false);
+      setQueryPatch({ plan: data.planId, archived: null });
 
       if (data.needsAssets) {
         const assetsResponse = await fetch(
@@ -359,15 +480,21 @@ export const BrandPlanPanel = ({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageModelValue: form.imageModelValue }),
+            body: JSON.stringify({
+              imageModelValue: safeImageModelValue(form.imageModelValue),
+            }),
           },
         );
-        const assetsData = (await assetsResponse.json()) as { error?: string };
+        const assetsData = (await assetsResponse.json()) as {
+          error?: string;
+          code?: string;
+        };
         if (!assetsResponse.ok) {
           setError(
             assetsData.error ??
               "Plan created, but image generation failed. You can retry from Posts.",
           );
+          setErrorCode(assetsData.code ?? "");
           return;
         }
       }
@@ -382,21 +509,190 @@ export const BrandPlanPanel = ({
   };
 
   const handleSelectKind = (value: KindFilter) => {
-    setKindFilter(value);
+    setQueryPatch({ kind: value });
     setSingleIndex(0);
     handleCloseEdit();
   };
 
   const handleSelectSort = (value: PostSort) => {
-    setPostSort(value);
+    setQueryPatch({ sort: value });
     setSingleIndex(0);
     handleCloseEdit();
   };
 
   const handleSelectView = (value: PostViewMode) => {
-    setPostViewMode(value);
+    setQueryPatch({ mode: value });
     setSingleIndex(0);
     handleCloseEdit();
+  };
+
+  const handleToggleArchived = () => {
+    setQueryPatch({
+      archived: showArchived ? null : "1",
+      plan: "all",
+    });
+    setSingleIndex(0);
+    handleCloseEdit();
+  };
+
+  const handleCloseConfirm = () => {
+    if (statusBusyId) {
+      return;
+    }
+    setConfirmSpec(null);
+    setConfirmError("");
+  };
+
+  const handleRunConfirm = async () => {
+    if (!confirmSpec) {
+      return;
+    }
+    setConfirmError("");
+    try {
+      await confirmSpec.run();
+      setConfirmSpec(null);
+    } catch (caught) {
+      setConfirmError(
+        caught instanceof Error ? caught.message : "Could not complete that action.",
+      );
+    }
+  };
+
+  const handleArchivePlan = (plan: BrandPlan) => {
+    const restoring = isArchivedPlan(plan);
+    setConfirmError("");
+    setConfirmSpec({
+      title: restoring ? "Restore content plan" : "Archive content plan",
+      description: restoring
+        ? `Restore “${planLabel(plan)}” back to your active plans?`
+        : `Archive “${planLabel(plan)}”? You can restore it later from Archived.`,
+      confirmLabel: restoring ? "Restore plan" : "Archive plan",
+      busyLabel: restoring ? "Restoring…" : "Archiving…",
+      tone: "default",
+      run: async () => {
+        const nextStatus = restoring ? "READY" : "ARCHIVED";
+        setStatusBusyId(plan.id);
+        try {
+          const response = await fetch(
+            `/api/brands/${brandId}/plans/${plan.id}/status`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: nextStatus }),
+            },
+          );
+          const data = (await response.json()) as { error?: string };
+          if (!response.ok) {
+            throw new Error(data.error ?? "Could not update the plan.");
+          }
+          if (nextStatus === "ARCHIVED") {
+            setQueryPatch({ plan: "all" });
+          } else {
+            setQueryPatch({ archived: null, plan: plan.id });
+          }
+          router.refresh();
+        } finally {
+          setStatusBusyId(null);
+        }
+      },
+    });
+  };
+
+  const handleDeletePlan = (plan: BrandPlan) => {
+    setConfirmError("");
+    setConfirmSpec({
+      title: "Delete content plan",
+      description: `Permanently delete “${planLabel(plan)}” and its posts? This cannot be undone.`,
+      confirmLabel: "Delete plan",
+      busyLabel: "Deleting…",
+      tone: "danger",
+      run: async () => {
+        setStatusBusyId(plan.id);
+        try {
+          const response = await fetch(
+            `/api/brands/${brandId}/plans/${plan.id}`,
+            { method: "DELETE" },
+          );
+          const data = (await response.json()) as { error?: string };
+          if (!response.ok) {
+            throw new Error(data.error ?? "Could not delete the plan.");
+          }
+          setQueryPatch({ plan: "all" });
+          handleCloseEdit();
+          router.refresh();
+        } finally {
+          setStatusBusyId(null);
+        }
+      },
+    });
+  };
+
+  const handleArchivePost = (post: BrandPost) => {
+    const restoring = isArchivedPost(post);
+    setConfirmError("");
+    setConfirmSpec({
+      title: restoring ? "Restore post" : "Archive post",
+      description: restoring
+        ? "Restore this post back to the active content plan?"
+        : `Archive this ${post.kind.toLowerCase()} post? You can restore it later from Archived.`,
+      confirmLabel: restoring ? "Restore post" : "Archive post",
+      busyLabel: restoring ? "Restoring…" : "Archiving…",
+      tone: "default",
+      run: async () => {
+        const nextStatus = restoring
+          ? post.plannedAt
+            ? "PLANNED"
+            : "DRAFT"
+          : "ARCHIVED";
+        setStatusBusyId(post.id);
+        try {
+          const response = await fetch(
+            `/api/brands/${brandId}/posts/${post.id}/status`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: nextStatus }),
+            },
+          );
+          const data = (await response.json()) as { error?: string };
+          if (!response.ok) {
+            throw new Error(data.error ?? "Could not update the post.");
+          }
+          handleCloseEdit();
+          router.refresh();
+        } finally {
+          setStatusBusyId(null);
+        }
+      },
+    });
+  };
+
+  const handleDeletePost = (post: BrandPost) => {
+    setConfirmError("");
+    setConfirmSpec({
+      title: "Delete post",
+      description: `Permanently delete this ${post.kind.toLowerCase()} post? This cannot be undone.`,
+      confirmLabel: "Delete post",
+      busyLabel: "Deleting…",
+      tone: "danger",
+      run: async () => {
+        setStatusBusyId(post.id);
+        try {
+          const response = await fetch(
+            `/api/brands/${brandId}/posts/${post.id}`,
+            { method: "DELETE" },
+          );
+          const data = (await response.json()) as { error?: string };
+          if (!response.ok) {
+            throw new Error(data.error ?? "Could not delete the post.");
+          }
+          handleCloseEdit();
+          router.refresh();
+        } finally {
+          setStatusBusyId(null);
+        }
+      },
+    });
   };
 
   const handleOpenEdit = (post: BrandPost) => {
@@ -432,7 +728,7 @@ export const BrandPlanPanel = ({
           caption: editDraft.caption,
           imagePrompt: editDraft.imagePrompt,
           imageAspect: editDraft.imageAspect,
-          imageModelValue: editDraft.imageModelValue,
+          imageModelValue: safeImageModelValue(editDraft.imageModelValue),
           notes: editDraft.notes,
           hashtags: parseHashtags(editDraft.hashtags),
           pageId: editDraft.pageId || null,
@@ -501,6 +797,7 @@ export const BrandPlanPanel = ({
 
   const handleGeneratePlanAssets = async (id: string) => {
     setPostError("");
+    setPostErrorCode("");
     setGeneratingPlan(true);
     try {
       const response = await fetch(
@@ -508,12 +805,15 @@ export const BrandPlanPanel = ({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageModelValue: defaultImageAi }),
+          body: JSON.stringify({
+            imageModelValue: safeImageModelValue(defaultImageAi),
+          }),
         },
       );
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as { error?: string; code?: string };
       if (!response.ok) {
         setPostError(data.error ?? "Could not generate assets.");
+        setPostErrorCode(data.code ?? "");
         return;
       }
       router.refresh();
@@ -555,7 +855,7 @@ export const BrandPlanPanel = ({
             pages.find((page) => page.id === editDraft.pageId)?.name ??
             editDraft.pageName,
           plannedAt: toIsoFromLocal(editDraft.scheduledAt),
-          imageModelValue: editDraft.imageModelValue,
+          imageModelValue: safeImageModelValue(editDraft.imageModelValue),
         }),
       });
       const saveData = (await saveResponse.json()) as { error?: string };
@@ -570,14 +870,15 @@ export const BrandPlanPanel = ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageModelValue: editDraft.imageModelValue,
+            imageModelValue: safeImageModelValue(editDraft.imageModelValue),
             generateMotion: false,
           }),
         },
       );
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as { error?: string; code?: string };
       if (!response.ok) {
         setPostError(data.error ?? "Could not generate assets.");
+        setPostErrorCode(data.code ?? "");
         return;
       }
       router.refresh();
@@ -700,6 +1001,52 @@ export const BrandPlanPanel = ({
           </div>
         ))}
       </div>
+    );
+  };
+
+  const ghostActionClass =
+    "rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-navy-soft disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
+
+  const renderPostArchiveActions = (post: BrandPost) => {
+    const busy = statusBusyId === post.id;
+    const archived = isArchivedPost(post);
+    if (showArchived) {
+      return (
+        <>
+          {archived ? (
+            <button
+              type="button"
+              onClick={() => void handleArchivePost(post)}
+              disabled={busy}
+              className={ghostActionClass}
+              aria-label={`Restore ${post.title || post.kind}`}
+            >
+              {busy ? "Updating…" : "Restore"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void handleDeletePost(post)}
+            disabled={busy}
+            className={ghostActionClass}
+            aria-label={`Delete ${post.title || post.kind}`}
+          >
+            {busy ? "Updating…" : "Delete"}
+          </button>
+        </>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => void handleArchivePost(post)}
+        disabled={busy}
+        className={ghostActionClass}
+        aria-label={`Archive ${post.title || post.kind}`}
+      >
+        {busy ? "Updating…" : "Archive"}
+      </button>
     );
   };
 
@@ -898,6 +1245,7 @@ export const BrandPlanPanel = ({
                     )
                   }
                   ariaLabel={`Image AI for ${post.title || post.kind}`}
+                  allowGemini={allowGemini}
                 />
               </FormField>
               <div>
@@ -979,9 +1327,9 @@ export const BrandPlanPanel = ({
             </div>
           ) : null}
           {postError ? (
-            <p className="mt-3 text-sm text-red-200" role="alert">
-              {postError}
-            </p>
+            <div className="mt-3">
+              <UpgradeAlert error={postError} code={postErrorCode} />
+            </div>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -996,6 +1344,7 @@ export const BrandPlanPanel = ({
             >
               {savingPostId === post.id ? "Saving…" : "Save"}
             </button>
+            {renderPostArchiveActions(post)}
             {isVisualKind(draft.kind) ? (
               <button
                 type="button"
@@ -1026,14 +1375,17 @@ export const BrandPlanPanel = ({
           footer={
             <>
               <p className="text-xs text-muted">Tap images to enlarge</p>
-              <button
-                type="button"
-                onClick={() => handleOpenEdit(post)}
-                className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-                aria-label={`Edit ${post.title || post.kind}`}
-              >
-                Edit
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEdit(post)}
+                  className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                  aria-label={`Edit ${post.title || post.kind}`}
+                >
+                  Edit
+                </button>
+                {renderPostArchiveActions(post)}
+              </div>
             </>
           }
         />
@@ -1150,6 +1502,36 @@ export const BrandPlanPanel = ({
                   One by one
                 </button>
               </div>
+              <div
+                className="inline-flex rounded-xl border border-line bg-navy-soft/60 p-1"
+                role="group"
+                aria-label="Archive view"
+              >
+                <button
+                  type="button"
+                  aria-pressed={!showArchived}
+                  onClick={() => {
+                    if (showArchived) {
+                      handleToggleArchived();
+                    }
+                  }}
+                  className={chipClass(!showArchived)}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={showArchived}
+                  onClick={() => {
+                    if (!showArchived) {
+                      handleToggleArchived();
+                    }
+                  }}
+                  className={chipClass(showArchived)}
+                >
+                  Archived
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1175,10 +1557,15 @@ export const BrandPlanPanel = ({
               ) : null}
             </div>
           ) : null}
+          {error && !isModalOpen ? (
+            <div className="mt-3">
+              <UpgradeAlert error={error} code={errorCode} />
+            </div>
+          ) : null}
           {postError && !editingPostId ? (
-            <p className="mt-3 text-sm text-red-200" role="alert">
-              {postError}
-            </p>
+            <div className="mt-3">
+              <UpgradeAlert error={postError} code={postErrorCode} />
+            </div>
           ) : null}
 
           {!sorted.length ? (
@@ -1259,7 +1646,7 @@ export const BrandPlanPanel = ({
               Content plans
             </h3>
             <span className="text-xs text-muted">
-              {filteredPlans.length}/{sorted.length}
+              {filteredPlans.length}/{scopedPlans.length}
             </span>
           </div>
           <label className="mt-3 block">
@@ -1276,7 +1663,11 @@ export const BrandPlanPanel = ({
           <button
             type="button"
             aria-pressed={showAllPlans}
-            onClick={() => setShowAllPlans(true)}
+            onClick={() => {
+              setQueryPatch({ plan: "all" });
+              setSingleIndex(0);
+              handleCloseEdit();
+            }}
             className={`mt-3 w-full rounded-xl border px-3 py-2.5 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               showAllPlans
                 ? "border-accent bg-navy-soft text-ink"
@@ -1289,36 +1680,78 @@ export const BrandPlanPanel = ({
             {filteredPlans.length ? (
               filteredPlans.map((plan) => {
                 const isActive = !showAllPlans && selected?.id === plan.id;
+                const archived = isArchivedPlan(plan);
                 return (
                   <li key={plan.id}>
-                    <button
-                      type="button"
-                      aria-pressed={isActive}
-                      aria-label={`Select plan ${planLabel(plan)}`}
-                      onClick={() => {
-                        setShowAllPlans(false);
-                        setPlanId(plan.id);
-                      }}
-                      className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                    <div
+                      className={`flex items-stretch gap-1 rounded-xl border ${
                         isActive
                           ? "border-accent bg-navy-soft"
                           : "border-line hover:bg-navy-soft"
                       }`}
                     >
-                      <span className="block truncate font-medium text-ink">
-                        {planLabel(plan)}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] text-muted">
-                        {plan.startDate.slice(0, 10)} · {plan.days}d ·{" "}
-                        {plan.posts.length} posts · {plan.status}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        aria-pressed={isActive}
+                        aria-label={`Select plan ${planLabel(plan)}`}
+                        onClick={() => {
+                          setQueryPatch({ plan: plan.id });
+                          setSingleIndex(0);
+                          handleCloseEdit();
+                        }}
+                        className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      >
+                        <span className="block truncate font-medium text-ink">
+                          {planLabel(plan)}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-muted">
+                          {plan.startDate.slice(0, 10)} · {plan.days}d ·{" "}
+                          {plan.posts.length} posts · {plan.status}
+                        </span>
+                      </button>
+                      <div className="flex shrink-0 flex-col justify-center gap-1 pr-2">
+                        {archived ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={statusBusyId === plan.id}
+                              onClick={() => void handleArchivePlan(plan)}
+                              className="rounded-lg px-2 py-1 text-[11px] font-semibold text-muted hover:text-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                              aria-label={`Restore plan ${planLabel(plan)}`}
+                            >
+                              {statusBusyId === plan.id ? "…" : "Restore"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={statusBusyId === plan.id}
+                              onClick={() => void handleDeletePlan(plan)}
+                              className="rounded-lg px-2 py-1 text-[11px] font-semibold text-muted hover:text-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                              aria-label={`Delete plan ${planLabel(plan)}`}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={statusBusyId === plan.id}
+                            onClick={() => void handleArchivePlan(plan)}
+                            className="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                            aria-label={`Archive plan ${planLabel(plan)}`}
+                          >
+                            {statusBusyId === plan.id ? "…" : "Archive"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </li>
                 );
               })
             ) : (
               <li className="px-1 py-4 text-center text-xs text-muted">
-                No plans match your search.
+                {showArchived
+                  ? "No archived plans."
+                  : "No plans match your search."}
               </li>
             )}
           </ul>
@@ -1351,7 +1784,7 @@ export const BrandPlanPanel = ({
                 id="planDays"
                 type="range"
                 min={MIN_PLAN_DAYS}
-                max={MAX_PLAN_DAYS}
+                max={planDayMax}
                 value={form.days}
                 onChange={(event) =>
                   handleScaleMix(
@@ -1448,6 +1881,7 @@ export const BrandPlanPanel = ({
                 setForm((current) => ({ ...current, imageModelValue }))
               }
               ariaLabel="Image AI model for this plan"
+              allowGemini={allowGemini}
             />
           </FormField>
           <fieldset className="rounded-xl border border-line p-3">
@@ -1486,14 +1920,7 @@ export const BrandPlanPanel = ({
               Sum: {mixSum} / {total}
             </p>
           </fieldset>
-          {error ? (
-            <p
-              className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
-              role="alert"
-            >
-              {error}
-            </p>
-          ) : null}
+          {error ? <UpgradeAlert error={error} code={errorCode} /> : null}
           <button
             type="submit"
             disabled={
@@ -1505,6 +1932,18 @@ export const BrandPlanPanel = ({
           </button>
         </form>
       </Modal>
+      <ConfirmModal
+        title={confirmSpec?.title ?? ""}
+        description={confirmSpec?.description ?? ""}
+        confirmLabel={confirmSpec?.confirmLabel ?? "Confirm"}
+        busyLabel={confirmSpec?.busyLabel}
+        isOpen={Boolean(confirmSpec)}
+        isBusy={Boolean(statusBusyId)}
+        tone={confirmSpec?.tone ?? "default"}
+        error={confirmError}
+        onClose={handleCloseConfirm}
+        onConfirm={() => void handleRunConfirm()}
+      />
       <MediaPreview
         media={previewMedia}
         onClose={() => setPreviewMedia(null)}

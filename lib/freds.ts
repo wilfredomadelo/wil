@@ -14,6 +14,8 @@ import type {
   FredsPlanResponse,
   FredsSocialAccountsResponse,
   PersonaSummary,
+  WilBillingSnapshot,
+  WilCatalogPlan,
   WilSubscriber,
 } from "@/lib/types";
 
@@ -310,6 +312,98 @@ export const updateFredsPost = async (
   };
 };
 
+export const updateFredsPostStatus = async (
+  token: string,
+  brandId: string,
+  postId: string,
+  status: string,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status: httpStatus, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/posts/${postId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status: httpStatus,
+  };
+};
+
+export const updateFredsPlanStatus = async (
+  token: string,
+  brandId: string,
+  planId: string,
+  status: string,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status: httpStatus, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/plans/${planId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status: httpStatus,
+  };
+};
+
+export const deleteFredsPost = async (
+  token: string,
+  brandId: string,
+  postId: string,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status: httpStatus, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/posts/${postId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status: httpStatus,
+  };
+};
+
+export const deleteFredsPlan = async (
+  token: string,
+  brandId: string,
+  planId: string,
+): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+  const { status: httpStatus, data } = await callFreds<FredsBrandsResponse>(
+    `/api/wil/brands/${brandId}/plans/${planId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return {
+    brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
+    error: data.error,
+    status: httpStatus,
+  };
+};
+
 export const createFredsPlan = async (
   token: string,
   brandId: string,
@@ -319,6 +413,7 @@ export const createFredsPlan = async (
   brand?: BrandDetail;
   needsAssets?: boolean;
   error?: string;
+  code?: string;
   status: number;
 }> => {
   const { status, data } = await callFreds<FredsPlanResponse>(
@@ -337,6 +432,7 @@ export const createFredsPlan = async (
     brand: data.brand,
     needsAssets: data.needsAssets,
     error: data.error,
+    code: data.code,
     status,
   };
 };
@@ -346,7 +442,12 @@ export const generateFredsPlanAssets = async (
   brandId: string,
   planId: string,
   input: { imageModelValue?: string } = {},
-): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+): Promise<{
+  brand?: BrandDetail;
+  error?: string;
+  code?: string;
+  status: number;
+}> => {
   const { status, data } = await callFreds<FredsBrandsResponse>(
     `/api/wil/brands/${brandId}/plans/${planId}/generate-assets`,
     {
@@ -361,6 +462,7 @@ export const generateFredsPlanAssets = async (
   return {
     brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
     error: data.error,
+    code: data.code,
     status,
   };
 };
@@ -370,7 +472,12 @@ export const generateFredsPostAssets = async (
   brandId: string,
   postId: string,
   input: { imageModelValue?: string; generateMotion?: boolean } = {},
-): Promise<{ brand?: BrandDetail; error?: string; status: number }> => {
+): Promise<{
+  brand?: BrandDetail;
+  error?: string;
+  code?: string;
+  status: number;
+}> => {
   const { status, data } = await callFreds<FredsBrandsResponse>(
     `/api/wil/brands/${brandId}/posts/${postId}/generate-assets`,
     {
@@ -385,6 +492,7 @@ export const generateFredsPostAssets = async (
   return {
     brand: data.brand && isBrandDetail(data.brand) ? data.brand : undefined,
     error: data.error,
+    code: data.code,
     status,
   };
 };
@@ -485,7 +593,12 @@ export const createFredsBrand = async (
     industry: string;
     tagline: string;
   },
-): Promise<{ brand?: BrandSummary; error?: string; status: number }> => {
+): Promise<{
+  brand?: BrandSummary;
+  error?: string;
+  code?: string;
+  status: number;
+}> => {
   const { status, data } = await callFreds<FredsBrandsResponse>(
     "/api/wil/brands",
     {
@@ -497,7 +610,7 @@ export const createFredsBrand = async (
     },
   );
 
-  return { brand: data.brand, error: data.error, status };
+  return { brand: data.brand, error: data.error, code: data.code, status };
 };
 
 export const fetchFredsFacebookPages = async (
@@ -655,4 +768,114 @@ export const createFredsPersona = async (
   );
 
   return { persona: data.persona, error: data.error, status };
+};
+
+export const fetchFredsBillingCatalog = async (): Promise<{
+  catalog: WilCatalogPlan[];
+  paymongoConfigured: boolean;
+}> => {
+  const { status, data } = await callFreds<WilBillingSnapshot>(
+    "/api/wil/billing/catalog",
+    { method: "GET" },
+  );
+
+  if (status !== 200 || !Array.isArray(data.catalog)) {
+    return { catalog: [], paymongoConfigured: false };
+  }
+
+  return {
+    catalog: data.catalog,
+    paymongoConfigured: Boolean(data.paymongoConfigured),
+  };
+};
+
+export const fetchFredsBilling = async (
+  token: string,
+): Promise<WilBillingSnapshot | null> => {
+  const { status, data } = await callFreds<WilBillingSnapshot>(
+    "/api/wil/billing",
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+
+  if (status !== 200) {
+    return null;
+  }
+
+  return data;
+};
+
+export const startFredsCheckout = async (
+  token: string,
+  input: { plan: "STARTER" | "PRO"; phone?: string },
+): Promise<WilBillingSnapshot & { status: number }> => {
+  const { status, data } = await callFreds<WilBillingSnapshot>(
+    "/api/wil/billing/checkout",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    },
+  );
+  return { ...data, status };
+};
+
+export const syncFredsBilling = async (
+  token: string,
+): Promise<WilBillingSnapshot & { status: number }> => {
+  const { status, data } = await callFreds<WilBillingSnapshot>(
+    "/api/wil/billing/sync",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return { ...data, status };
+};
+
+export const changeFredsBillingPlan = async (
+  token: string,
+  plan: "STARTER" | "PRO",
+): Promise<WilBillingSnapshot & { status: number }> => {
+  const { status, data } = await callFreds<WilBillingSnapshot>(
+    "/api/wil/billing/change-plan",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ plan }),
+    },
+  );
+  return { ...data, status };
+};
+
+export const cancelFredsBilling = async (
+  token: string,
+  reason?: string,
+): Promise<WilBillingSnapshot & { status: number }> => {
+  const { status, data } = await callFreds<WilBillingSnapshot>(
+    "/api/wil/billing/cancel",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reason: reason ?? "unused" }),
+    },
+  );
+  return { ...data, status };
+};
+
+export const setFredsUsername = async (
+  token: string,
+  username: string,
+): Promise<{ user?: WilSubscriber; error?: string; status: number }> => {
+  const { status, data } = await callFreds<FredsAuthResponse>(
+    "/api/wil/auth/username",
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ username }),
+    },
+  );
+  return { user: data.user, error: data.error, status };
 };

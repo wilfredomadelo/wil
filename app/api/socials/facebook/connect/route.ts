@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWilAccessToken } from "@/lib/session";
+import { appPath } from "@/lib/app-path";
+import { getWilAccessToken, getWilSessionUser } from "@/lib/session";
 
 const getFredsApiUrl = () =>
   (process.env.FREDS_API_URL ?? process.env.NEXT_PUBLIC_FREDS_API_URL ?? "")
@@ -12,10 +13,15 @@ export const GET = async (request: NextRequest) => {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
+  const user = await getWilSessionUser();
+  const facebookPath = user
+    ? appPath(user, "/socials/facebook")
+    : "/login";
+
   const fredsUrl = getFredsApiUrl();
   if (!fredsUrl) {
     return NextResponse.redirect(
-      new URL("/socials/facebook?error=FREDS%20URL%20missing", origin),
+      new URL(`${facebookPath}?error=FREDS%20URL%20missing`, origin),
     );
   }
 

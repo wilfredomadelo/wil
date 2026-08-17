@@ -4,7 +4,7 @@ const tabs = [
     label: "Kit",
     summary: "Define the brand so AI and the team stay consistent.",
     steps: [
-      "Fill Identity: name, type, industry, tagline, vision, and mission.",
+      "Fill Identity: name, type, industry, tagline, Facebook page, vision, and mission.",
       "Set Colors, Design notes, and Voice / sample copy.",
       "Save the kit before generating content.",
     ],

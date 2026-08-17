@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppHref } from "@/components/app-base-path";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandCalendarPanel } from "@/components/brand-calendar-panel";
@@ -17,6 +18,8 @@ type BrandStudioProps = {
   brand: BrandDetail;
   facebook: FacebookStatus;
   pages: FacebookPageOption[];
+  maxPlanDays?: number;
+  billingPlan?: "FREE" | "STARTER" | "PRO";
 };
 
 const tabs = [
@@ -32,15 +35,24 @@ type TabId = (typeof tabs)[number]["id"];
 const isTabId = (value: string | null): value is TabId =>
   tabs.some((tab) => tab.id === value);
 
-export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
+export const BrandStudio = ({
+  brand,
+  facebook,
+  pages,
+  maxPlanDays = 30,
+  billingPlan = "FREE",
+}: BrandStudioProps) => {
   const router = useRouter();
+  const href = useAppHref();
   const searchParams = useSearchParams();
   const tab = isTabId(searchParams.get("tab")) ? searchParams.get("tab")! : "kit";
 
   const handleSelectTab = (nextTab: TabId) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", nextTab);
-    router.replace(`/brands/${brand.id}?${params.toString()}`, { scroll: false });
+    router.replace(`${href(`/brands/${brand.id}`)}?${params.toString()}`, {
+      scroll: false,
+    });
   };
 
   return (
@@ -48,7 +60,7 @@ export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link
-            href="/"
+            href={href("/")}
             className="text-xs font-semibold uppercase tracking-[0.22em] text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
           >
             ← Brands
@@ -64,7 +76,7 @@ export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
         <BrandDeleteButton
           brandId={brand.id}
           brandName={brand.name}
-          redirectTo="/"
+          redirectTo={href("/")}
         />
       </div>
 
@@ -92,7 +104,9 @@ export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
         ))}
       </div>
 
-      {tab === "kit" ? <BrandKitForm brand={brand} /> : null}
+      {tab === "kit" ? (
+        <BrandKitForm brand={brand} facebook={facebook} pages={pages} />
+      ) : null}
       {tab === "social" ? (
         <BrandSocialPanel
           brandId={brand.id}
@@ -103,7 +117,15 @@ export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
       {tab === "calendar" ? (
         <BrandCalendarPanel
           brandId={brand.id}
-          posts={brand.posts}
+          posts={brand.posts.filter((post) => {
+            if (post.status === "ARCHIVED") {
+              return false;
+            }
+            const plan = post.planId
+              ? brand.plans.find((item) => item.id === post.planId)
+              : null;
+            return plan?.status !== "ARCHIVED";
+          })}
           pages={pages}
         />
       ) : null}
@@ -117,6 +139,8 @@ export const BrandStudio = ({ brand, facebook, pages }: BrandStudioProps) => {
             brand.imageProvider,
             brand.imageModel,
           )}
+          maxPlanDays={maxPlanDays}
+          billingPlan={billingPlan}
         />
       ) : null}
       {tab === "guide" ? <BrandGuidePanel /> : null}

@@ -60,7 +60,10 @@ export const POST = async (request: NextRequest, { params }: Params) => {
 
     if (!result.planId || !result.brand) {
       return NextResponse.json(
-        { error: result.error ?? "Could not create plan." },
+        {
+          error: result.error ?? "Could not create plan.",
+          ...(result.code ? { code: result.code } : {}),
+        },
         { status: result.status === 200 ? 502 : result.status },
       );
     }

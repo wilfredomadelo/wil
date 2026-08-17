@@ -4,10 +4,17 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fieldClassName, FormField } from "@/components/form-field";
 import { brandIndustrySuggestions, brandKinds } from "@/lib/brand-options";
-import type { BrandDetail, BrandKitInput } from "@/lib/types";
+import type {
+  BrandDetail,
+  BrandKitInput,
+  FacebookPageOption,
+  FacebookStatus,
+} from "@/lib/types";
 
 type BrandKitFormProps = {
   brand: BrandDetail;
+  facebook: FacebookStatus;
+  pages: FacebookPageOption[];
 };
 
 type KitSectionId = "logo" | "identity" | "colors" | "design" | "voice";
@@ -101,15 +108,35 @@ const ColorField = ({
   </FormField>
 );
 
-export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
+const assignedPageId = (brand: BrandDetail) =>
+  brand.pageBrands?.[0]?.pageId ?? "";
+
+export const BrandKitForm = ({
+  brand,
+  facebook,
+  pages,
+}: BrandKitFormProps) => {
   const router = useRouter();
   const [form, setForm] = useState<BrandKitInput>(() => toKitInput(brand));
   const [saved, setSaved] = useState<BrandKitInput>(() => toKitInput(brand));
+  const [kitPageId, setKitPageId] = useState(() => assignedPageId(brand));
+  const [savedPageId, setSavedPageId] = useState(() => assignedPageId(brand));
   const [activeSection, setActiveSection] = useState<KitSectionId>("logo");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const isDirty = JSON.stringify(form) !== JSON.stringify(saved);
+  const isDirty =
+    JSON.stringify(form) !== JSON.stringify(saved) || kitPageId !== savedPageId;
+  const pageOptions =
+    kitPageId && !pages.some((page) => page.id === kitPageId)
+      ? [
+          {
+            id: kitPageId,
+            name: brand.pageBrands?.[0]?.pageName || kitPageId,
+          },
+          ...pages,
+        ]
+      : pages;
 
   const handleChange = (patch: Partial<BrandKitInput>) => {
     setForm((current) => ({ ...current, ...patch }));
@@ -118,6 +145,7 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
 
   const handleCancel = () => {
     setForm(saved);
+    setKitPageId(savedPageId);
     setError("");
   };
 
@@ -184,7 +212,12 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
       const response = await fetch(`/api/brands/${brand.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          pageId: kitPageId,
+          pageName:
+            pageOptions.find((page) => page.id === kitPageId)?.name ?? kitPageId,
+        }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -193,6 +226,7 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
       }
 
       setSaved(form);
+      setSavedPageId(kitPageId);
       router.refresh();
     } catch {
       setError("Could not reach wil. Try again.");
@@ -402,6 +436,37 @@ export const BrandKitForm = ({ brand }: BrandKitFormProps) => {
                   className={fieldClassName}
                 />
               </FormField>
+              <div className="sm:col-span-2">
+                <FormField
+                  htmlFor="kit-page"
+                  label="Facebook page"
+                  hint="Default page for content plans and publishing."
+                >
+                  {facebook.connected || pageOptions.length > 0 ? (
+                    <select
+                      id="kit-page"
+                      value={kitPageId}
+                      onChange={(event) => {
+                        setKitPageId(event.target.value);
+                        setError("");
+                      }}
+                      className={fieldClassName}
+                      aria-label="Facebook page for brand kit"
+                    >
+                      <option value="">No page</option>
+                      {pageOptions.map((page) => (
+                        <option key={page.id} value={page.id}>
+                          {page.name || page.id}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm text-muted">
+                      Connect Facebook on Social to choose a page.
+                    </p>
+                  )}
+                </FormField>
+              </div>
               <div className="sm:col-span-2">
                 <FormField htmlFor="brandDescription" label="Description">
                   <textarea

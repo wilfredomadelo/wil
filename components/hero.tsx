@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { InteractiveMascot } from "@/components/interactive-mascot";
+import { postAuthPath } from "@/lib/app-path";
+import type { WilSubscriber } from "@/lib/types";
 
-export const Hero = () => {
+type HeroProps = {
+  user?: WilSubscriber | null;
+};
+
+export const Hero = ({ user = null }: HeroProps) => {
+  const primaryHref = user ? postAuthPath(user) : "/signup";
+  const primaryLabel = user ? "Open wil" : "Get started";
+
   return (
     <section
       className="relative overflow-hidden"
@@ -24,12 +33,17 @@ export const Hero = () => {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href="/signup"
+              href={primaryHref}
               className="btn-solid inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
             >
-              Get started
+              {primaryLabel}
             </Link>
-            <p className="text-sm text-muted">Landing preview · v1</p>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center justify-center rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-ink hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            >
+              See pricing
+            </Link>
           </div>
         </div>
 

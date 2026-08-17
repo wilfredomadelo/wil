@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { postAuthPath } from "@/lib/app-path";
+import type { WilSubscriber } from "@/lib/types";
 
 type AuthMode = "login" | "signup";
 
@@ -35,14 +37,17 @@ export const AuthForm = ({ mode }: AuthFormProps) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as {
+        error?: string;
+        user?: WilSubscriber;
+      };
 
-      if (!response.ok) {
+      if (!response.ok || !data.user) {
         setError(data.error ?? "Something went wrong.");
         return;
       }
 
-      router.push("/");
+      router.push(postAuthPath(data.user));
       router.refresh();
     } catch {
       setError("Could not reach wil. Try again.");

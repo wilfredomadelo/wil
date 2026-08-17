@@ -1,15 +1,90 @@
+export type WilBillingPlanId = "FREE" | "STARTER" | "PRO";
+
+export type WilSubscriptionStatusId =
+  | "NONE"
+  | "INCOMPLETE"
+  | "ACTIVE"
+  | "PAST_DUE"
+  | "UNPAID"
+  | "CANCELLED";
+
+export type WilPlanLimits = {
+  maxBrands: number;
+  maxPlanDays: number;
+  maxAiImagesPerMonth: number;
+};
+
+export type WilSubscriberBilling = {
+  plan: WilBillingPlanId;
+  status: WilSubscriptionStatusId;
+  pendingPlan: WilBillingPlanId | null;
+  periodEnd: string | null;
+  limits: WilPlanLimits;
+};
+
+export type WilCatalogPlan = {
+  id: WilBillingPlanId;
+  name: string;
+  amount: number;
+  currency: "PHP";
+  interval: "month";
+  description: string;
+  features: string[];
+  limits: WilPlanLimits;
+};
+
+export type WilBillingUsage = {
+  brands: { used: number; max: number };
+  planDays: { max: number };
+  aiImages: { used: number; max: number };
+};
+
+export type WilCheckoutSession = {
+  paymentIntentId: string;
+  clientKey: string;
+  amount: number;
+  currency: string;
+  status: string;
+  returnUrl: string;
+};
+
+export type WilBillingSnapshot = {
+  catalog?: WilCatalogPlan[];
+  billing?: WilSubscriberBilling;
+  usage?: WilBillingUsage;
+  checkout?: WilCheckoutSession | null;
+  paymongoConfigured?: boolean;
+  error?: string;
+  code?: string;
+};
+
+export const DEFAULT_WIL_BILLING: WilSubscriberBilling = {
+  plan: "FREE",
+  status: "NONE",
+  pendingPlan: null,
+  periodEnd: null,
+  limits: {
+    maxBrands: 1,
+    maxPlanDays: 7,
+    maxAiImagesPerMonth: 20,
+  },
+};
+
 export type WilSubscriber = {
   id: string;
   email: string | null;
   name: string | null;
+  username?: string | null;
   role: "SUBSCRIBER";
   verified: boolean;
+  billing?: WilSubscriberBilling;
 };
 
 export type FredsAuthResponse = {
   token?: string;
   user?: WilSubscriber;
   error?: string;
+  code?: string;
 };
 
 export type BrandSummary = {
@@ -103,6 +178,13 @@ export type BrandPlan = {
   posts: BrandPost[];
 };
 
+export type BrandPageAssignment = {
+  id: string;
+  pageId: string;
+  pageName: string;
+  brandId: string;
+};
+
 export type BrandDetail = BrandSummary & {
   description: string;
   vision: string;
@@ -116,6 +198,7 @@ export type BrandDetail = BrandSummary & {
   imageProvider?: string;
   imageModel?: string;
   socialAccounts: BrandSocialAccount[];
+  pageBrands?: BrandPageAssignment[];
   plans: BrandPlan[];
   posts: BrandPost[];
 };
@@ -137,6 +220,8 @@ export type BrandKitInput = {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
+  pageId?: string;
+  pageName?: string;
 };
 
 export type BrandPlanInput = {
@@ -160,12 +245,14 @@ export type FredsPlanResponse = {
   brand?: BrandDetail;
   needsAssets?: boolean;
   error?: string;
+  code?: string;
 };
 
 export type FredsBrandsResponse = {
   brands?: BrandSummary[];
   brand?: BrandDetail | BrandSummary;
   error?: string;
+  code?: string;
 };
 
 export type FredsSocialAccountsResponse = {

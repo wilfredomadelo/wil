@@ -28,6 +28,8 @@ const readKitInput = (body: Record<string, unknown>): BrandKitInput => ({
   secondaryColor:
     typeof body.secondaryColor === "string" ? body.secondaryColor : "",
   accentColor: typeof body.accentColor === "string" ? body.accentColor : "",
+  pageId: typeof body.pageId === "string" ? body.pageId : "",
+  pageName: typeof body.pageName === "string" ? body.pageName : "",
 });
 
 export const GET = async (_request: NextRequest, { params }: Params) => {
