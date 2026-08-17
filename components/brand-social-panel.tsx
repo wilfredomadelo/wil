@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { FacebookLogoutButton } from "@/components/facebook-logout-button";
 import { fieldClassName, FormField } from "@/components/form-field";
 import { Modal } from "@/components/modal";
 import { socialAccountPlatforms } from "@/lib/brand-options";
@@ -100,9 +101,12 @@ export const BrandSocialPanel = ({
           Connect once for later publishing. Meta keys stay on FREDS.
         </p>
         {facebook.connected ? (
-          <p className="mt-4 text-sm font-semibold text-ink">
-            Connected{facebook.name ? ` · ${facebook.name}` : ""}
-          </p>
+          <div className="mt-4 space-y-4">
+            <p className="text-sm font-semibold text-ink">
+              Connected{facebook.name ? ` · ${facebook.name}` : ""}
+            </p>
+            <FacebookLogoutButton />
+          </div>
         ) : (
           <a
             href="/api/socials/facebook/connect"

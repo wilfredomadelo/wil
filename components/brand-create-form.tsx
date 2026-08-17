@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { brandIndustrySuggestions, brandKinds } from "@/lib/brand-options";
+import { useAppHref } from "@/components/app-base-path";
+import { UpgradeAlert } from "@/components/upgrade-alert";
 
 const fieldClassName =
   "w-full rounded-xl border border-line bg-navy px-4 py-3 text-sm text-ink outline-none placeholder:text-muted focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
@@ -13,16 +15,19 @@ type BrandCreateFormProps = {
 
 export const BrandCreateForm = ({ onSuccess }: BrandCreateFormProps) => {
   const router = useRouter();
+  const href = useAppHref();
   const [name, setName] = useState("");
   const [kind, setKind] = useState("company");
   const [industry, setIndustry] = useState("");
   const [tagline, setTagline] = useState("");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setErrorCode("");
     setIsSubmitting(true);
 
     try {
@@ -33,17 +38,19 @@ export const BrandCreateForm = ({ onSuccess }: BrandCreateFormProps) => {
       });
       const data = (await response.json()) as {
         error?: string;
+        code?: string;
         brand?: { id?: string };
       };
 
       if (!response.ok) {
         setError(data.error ?? "Could not create brand.");
+        setErrorCode(data.code ?? "");
         return;
       }
 
       onSuccess?.();
       if (data.brand?.id) {
-        router.push(`/brands/${data.brand.id}`);
+        router.push(href(`/brands/${data.brand.id}`));
         return;
       }
 
@@ -123,11 +130,7 @@ export const BrandCreateForm = ({ onSuccess }: BrandCreateFormProps) => {
           className={fieldClassName}
         />
       </div>
-      {error ? (
-        <p className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <UpgradeAlert error={error} code={errorCode} /> : null}
       <button
         type="submit"
         disabled={isSubmitting}

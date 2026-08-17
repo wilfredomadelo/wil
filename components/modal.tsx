@@ -7,9 +7,18 @@ type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
   children: ReactNode;
+  size?: "default" | "tall";
+  hideTitle?: boolean;
 };
 
-export const Modal = ({ title, isOpen, onClose, children }: ModalProps) => {
+export const Modal = ({
+  title,
+  isOpen,
+  onClose,
+  children,
+  size = "default",
+  hideTitle = false,
+}: ModalProps) => {
   if (!isOpen) {
     return null;
   }
@@ -34,19 +43,36 @@ export const Modal = ({ title, isOpen, onClose, children }: ModalProps) => {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="auth-card relative z-10 w-full max-w-lg rounded-3xl p-6 shadow-xl"
+        className={`auth-card relative z-10 w-full rounded-3xl shadow-xl ${
+          size === "tall"
+            ? "max-h-[90vh] max-w-3xl overflow-y-auto"
+            : "max-w-lg"
+        } ${hideTitle ? "p-0" : "p-6"}`}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="font-display text-xl font-extrabold text-ink">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-3 py-1 text-sm font-semibold text-muted hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            aria-label="Close"
-          >
-            Close
-          </button>
-        </div>
+        {hideTitle ? (
+          <div className="flex items-center justify-end border-b border-line px-3 py-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full px-3 py-1 text-sm font-semibold text-muted hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              aria-label="Close"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <h2 className="font-display text-xl font-extrabold text-ink">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full px-3 py-1 text-sm font-semibold text-muted hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              aria-label="Close"
+            >
+              Close
+            </button>
+          </div>
+        )}
         {children}
       </div>
     </div>

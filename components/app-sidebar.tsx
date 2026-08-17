@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { joinBasePath } from "@/lib/app-path";
 import { BrandMark } from "@/components/brand-mark";
 import { ProfileIcon } from "@/components/profile-icon";
 
 type AppSidebarProps = {
   userName: string;
   userEmail: string;
+  homeHref: string;
 };
 
 const socialItems = [
-  { href: "/socials/facebook", label: "Facebook", soon: false },
-  { href: "/socials/tiktok", label: "TikTok", soon: true },
-  { href: "/socials/instagram", label: "Instagram", soon: true },
-  { href: "/socials/youtube", label: "YouTube", soon: true },
+  { path: "/socials/facebook", label: "Facebook", soon: false },
+  { path: "/socials/tiktok", label: "TikTok", soon: true },
+  { path: "/socials/instagram", label: "Instagram", soon: true },
+  { path: "/socials/youtube", label: "YouTube", soon: true },
 ] as const;
 
 const navClass = (active: boolean) =>
@@ -23,11 +25,16 @@ const navClass = (active: boolean) =>
     active ? "bg-accent text-[color:var(--button-ink)]" : "text-ink hover:bg-navy-soft"
   }`;
 
-export const AppSidebar = ({ userName, userEmail }: AppSidebarProps) => {
+export const AppSidebar = ({ userName, userEmail, homeHref }: AppSidebarProps) => {
   const pathname = usePathname();
+  const href = (path: string) => joinBasePath(homeHref, path);
+  const pricingHref = href("/pricing");
+  const billingHref = href("/billing");
+  const personasHref = href("/personas");
+  const profileHref = href("/profile");
   const [isOpen, setIsOpen] = useState(false);
   const [isSocialsOpen, setIsSocialsOpen] = useState(
-    pathname.startsWith("/socials"),
+    pathname.startsWith(`${homeHref}/socials`),
   );
 
   const handleClose = () => setIsOpen(false);
@@ -38,7 +45,7 @@ export const AppSidebar = ({ userName, userEmail }: AppSidebarProps) => {
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-line px-4 py-4">
         <Link
-          href="/"
+          href={homeHref}
           onClick={handleClose}
           aria-label="wil home"
           className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
@@ -62,7 +69,7 @@ export const AppSidebar = ({ userName, userEmail }: AppSidebarProps) => {
               {socialItems.map((item) =>
                 item.soon ? (
                   <p
-                    key={item.href}
+                    key={item.path}
                     className="flex items-center justify-between rounded-xl px-3 py-2 text-sm text-muted"
                   >
                     {item.label}
@@ -72,10 +79,10 @@ export const AppSidebar = ({ userName, userEmail }: AppSidebarProps) => {
                   </p>
                 ) : (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    key={item.path}
+                    href={href(item.path)}
                     onClick={handleClose}
-                    className={navClass(pathname === item.href)}
+                    className={navClass(pathname === href(item.path))}
                   >
                     {item.label}
                   </Link>
@@ -85,26 +92,43 @@ export const AppSidebar = ({ userName, userEmail }: AppSidebarProps) => {
           ) : null}
         </div>
         <Link
-          href="/"
+          href={homeHref}
           onClick={handleClose}
-          className={navClass(pathname === "/" || pathname.startsWith("/brands"))}
+          className={navClass(
+            pathname === homeHref || pathname.startsWith(`${homeHref}/brands`),
+          )}
         >
           Brands
         </Link>
         <Link
-          href="/personas"
+          href={personasHref}
           onClick={handleClose}
-          className={navClass(pathname === "/personas")}
+          className={navClass(pathname === personasHref)}
         >
           Personas
+        </Link>
+        <Link
+          href={pricingHref}
+          onClick={handleClose}
+          className={navClass(pathname === pricingHref)}
+        >
+          Pricing
+        </Link>
+        <Link
+          href={billingHref}
+          onClick={handleClose}
+          className={navClass(pathname.startsWith(billingHref))}
+        >
+          Billing
         </Link>
       </nav>
       <div className="border-t border-line px-4 py-4">
         <div className="flex items-center gap-3">
           <ProfileIcon
             name={userName}
+            href={profileHref}
             onClick={handleClose}
-            isActive={pathname === "/profile"}
+            isActive={pathname === profileHref}
           />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">{userName}</p>
@@ -120,7 +144,11 @@ export const AppSidebar = ({ userName, userEmail }: AppSidebarProps) => {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-navy-soft/90 px-4 py-3 backdrop-blur-md lg:hidden">
         <BrandMark />
         <div className="flex items-center gap-2">
-          <ProfileIcon name={userName} isActive={pathname === "/profile"} />
+          <ProfileIcon
+            name={userName}
+            href={profileHref}
+            isActive={pathname === profileHref}
+          />
           <button
             type="button"
             onClick={handleToggleMenu}

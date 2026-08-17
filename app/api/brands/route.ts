@@ -30,7 +30,10 @@ export const POST = async (request: NextRequest) => {
 
     if (!result.brand) {
       return NextResponse.json(
-        { error: result.error ?? "Could not create brand." },
+        {
+          error: result.error ?? "Could not create brand.",
+          ...(result.code ? { code: result.code } : {}),
+        },
         { status: result.status === 200 ? 502 : result.status },
       );
     }

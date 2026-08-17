@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 type AppShellProps = {
   userName: string;
   userEmail: string;
+  homeHref: string;
   children: ReactNode;
   wide?: boolean;
 };
@@ -11,16 +12,21 @@ type AppShellProps = {
 export const AppShell = ({
   userName,
   userEmail,
+  homeHref,
   children,
   wide = false,
 }: AppShellProps) => {
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      <AppSidebar userName={userName} userEmail={userEmail} />
+      <AppSidebar
+        userName={userName}
+        userEmail={userEmail}
+        homeHref={homeHref}
+      />
       <div className="min-w-0 flex-1">
         <main
           id="main"
-          className={`mx-auto w-full px-5 py-8 sm:px-8 ${wide ? "max-w-6xl" : "max-w-4xl"}`}
+          className={`mx-auto w-full px-5 py-8 sm:px-8 ${wide ? "max-w-6xl" : "max-w-7xl"}`}
         >
           {children}
         </main>

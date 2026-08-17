@@ -2,19 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAppHref } from "@/components/app-base-path";
 import { BrandCreateForm } from "@/components/brand-create-form";
 import { BrandDeleteButton } from "@/components/brand-delete-button";
 import { Modal } from "@/components/modal";
-import { WIL_BRAND_LIMIT } from "@/lib/brand-options";
-import type { BrandSummary } from "@/lib/types";
+import { DEFAULT_WIL_BILLING, type BrandSummary, type WilSubscriberBilling } from "@/lib/types";
 
 type BrandWorkspaceProps = {
   brands: BrandSummary[];
+  billing?: WilSubscriberBilling;
 };
 
-export const BrandWorkspace = ({ brands }: BrandWorkspaceProps) => {
+export const BrandWorkspace = ({ brands, billing }: BrandWorkspaceProps) => {
+  const href = useAppHref();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const canCreate = brands.length < WIL_BRAND_LIMIT;
+  const limits = billing?.limits ?? DEFAULT_WIL_BILLING.limits;
+  const canCreate = brands.length < limits.maxBrands;
 
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
@@ -30,7 +33,7 @@ export const BrandWorkspace = ({ brands }: BrandWorkspaceProps) => {
             Brands
           </h1>
           <p className="mt-2 text-sm text-muted">
-            {brands.length} of {WIL_BRAND_LIMIT} brands used.
+            {brands.length} of {limits.maxBrands} brands used.
           </p>
         </div>
         <button
@@ -77,7 +80,7 @@ export const BrandWorkspace = ({ brands }: BrandWorkspaceProps) => {
                 <tr key={brand.id} className="border-b border-line last:border-0">
                   <th scope="row" className="px-5 py-4 font-semibold text-ink">
                     <Link
-                      href={`/brands/${brand.id}`}
+                      href={href(`/brands/${brand.id}`)}
                       className="hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                     >
                       {brand.name}
@@ -89,7 +92,7 @@ export const BrandWorkspace = ({ brands }: BrandWorkspaceProps) => {
                   <td className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/brands/${brand.id}?tab=kit`}
+                        href={`${href(`/brands/${brand.id}`)}?tab=kit`}
                         className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                       >
                         Edit
@@ -109,7 +112,14 @@ export const BrandWorkspace = ({ brands }: BrandWorkspaceProps) => {
 
       {!canCreate ? (
         <p className="text-sm text-muted">
-          Brand limit reached. Wil accounts can keep 2 brands.
+          Brand limit reached on your {billing?.plan === "PRO" ? "Pro" : billing?.plan === "STARTER" ? "Starter" : "Free"} plan.{" "}
+          <Link
+            href={href("/pricing")}
+            className="font-semibold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            Upgrade
+          </Link>{" "}
+          to add another brand.
         </p>
       ) : null}
 

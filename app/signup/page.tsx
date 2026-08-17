@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { postAuthPath } from "@/lib/app-path";
 import { getWilSessionUser } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 const SignupPage = async () => {
   const user = await getWilSessionUser();
   if (user) {
-    redirect("/");
+    redirect(postAuthPath(user));
   }
   return (
     <div className="flex min-h-full flex-col">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppHref } from "@/components/app-base-path";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandCalendarPanel } from "@/components/brand-calendar-panel";
@@ -8,11 +9,17 @@ import { BrandGuidePanel } from "@/components/brand-guide-panel";
 import { BrandKitForm } from "@/components/brand-kit-form";
 import { BrandPlanPanel } from "@/components/brand-plan-panel";
 import { BrandSocialPanel } from "@/components/brand-social-panel";
-import type { BrandDetail, FacebookStatus } from "@/lib/types";
+import {
+  buildImageModelValue,
+} from "@/lib/plan-options";
+import type { BrandDetail, FacebookPageOption, FacebookStatus } from "@/lib/types";
 
 type BrandStudioProps = {
   brand: BrandDetail;
   facebook: FacebookStatus;
+  pages: FacebookPageOption[];
+  maxPlanDays?: number;
+  billingPlan?: "FREE" | "STARTER" | "PRO";
 };
 
 const tabs = [
@@ -28,23 +35,55 @@ type TabId = (typeof tabs)[number]["id"];
 const isTabId = (value: string | null): value is TabId =>
   tabs.some((tab) => tab.id === value);
 
-export const BrandStudio = ({ brand, facebook }: BrandStudioProps) => {
+export const BrandStudio = ({
+  brand,
+  facebook,
+  pages,
+  maxPlanDays = 30,
+  billingPlan = "FREE",
+}: BrandStudioProps) => {
   const router = useRouter();
+  const href = useAppHref();
   const searchParams = useSearchParams();
   const tab = isTabId(searchParams.get("tab")) ? searchParams.get("tab")! : "kit";
 
   const handleSelectTab = (nextTab: TabId) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", nextTab);
-    router.replace(`/brands/${brand.id}?${params.toString()}`, { scroll: false });
+    router.replace(`${href(`/brands/${brand.id}`)}?${params.toString()}`, {
+      scroll: false,
+    });
   };
+
+  const pageOptions = (() => {
+    const byId = new Map<string, FacebookPageOption>();
+    for (const row of brand.pageBrands ?? []) {
+      if (!row.pageId) {
+        continue;
+      }
+      byId.set(row.pageId, {
+        id: row.pageId,
+        name: row.pageName || row.pageId,
+      });
+    }
+    for (const page of pages) {
+      if (!page.id) {
+        continue;
+      }
+      byId.set(page.id, {
+        id: page.id,
+        name: page.name || page.id,
+      });
+    }
+    return [...byId.values()];
+  })();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link
-            href="/"
+            href={href("/")}
             className="text-xs font-semibold uppercase tracking-[0.22em] text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
           >
             ← Brands
@@ -60,7 +99,7 @@ export const BrandStudio = ({ brand, facebook }: BrandStudioProps) => {
         <BrandDeleteButton
           brandId={brand.id}
           brandName={brand.name}
-          redirectTo="/"
+          redirectTo={href("/")}
         />
       </div>
 
@@ -88,7 +127,9 @@ export const BrandStudio = ({ brand, facebook }: BrandStudioProps) => {
         ))}
       </div>
 
-      {tab === "kit" ? <BrandKitForm brand={brand} /> : null}
+      {tab === "kit" ? (
+        <BrandKitForm brand={brand} facebook={facebook} pages={pageOptions} />
+      ) : null}
       {tab === "social" ? (
         <BrandSocialPanel
           brandId={brand.id}
@@ -96,8 +137,35 @@ export const BrandStudio = ({ brand, facebook }: BrandStudioProps) => {
           facebook={facebook}
         />
       ) : null}
-      {tab === "calendar" ? <BrandCalendarPanel posts={brand.posts} /> : null}
-      {tab === "plans" ? <BrandPlanPanel plans={brand.plans} /> : null}
+      {tab === "calendar" ? (
+        <BrandCalendarPanel
+          brandId={brand.id}
+          posts={brand.posts.filter((post) => {
+            if (post.status === "ARCHIVED") {
+              return false;
+            }
+            const plan = post.planId
+              ? brand.plans.find((item) => item.id === post.planId)
+              : null;
+            return plan?.status !== "ARCHIVED";
+          })}
+          pages={pageOptions}
+        />
+      ) : null}
+      {tab === "plans" ? (
+        <BrandPlanPanel
+          brandId={brand.id}
+          hasLogo={brand.hasLogo}
+          plans={brand.plans}
+          pages={pageOptions}
+          defaultImageAi={buildImageModelValue(
+            brand.imageProvider,
+            brand.imageModel,
+          )}
+          maxPlanDays={maxPlanDays}
+          billingPlan={billingPlan}
+        />
+      ) : null}
       {tab === "guide" ? <BrandGuidePanel /> : null}
     </div>
   );

@@ -1,5 +1,3 @@
-export const WIL_BRAND_LIMIT = 2;
-
 export const brandKinds = [
   { value: "company", label: "Company" },
   { value: "business", label: "Business" },
