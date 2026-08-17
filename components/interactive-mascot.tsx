@@ -68,14 +68,18 @@ export const InteractiveMascot = () => {
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-8 bottom-8 top-10 rounded-full bg-white/10 blur-3xl"
+        className="pointer-events-none absolute inset-4 rounded-full bg-[radial-gradient(circle,var(--glow-a)_0%,transparent_70%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-10 bottom-10 top-12 rounded-full bg-accent/20 blur-3xl"
       />
       <button
         type="button"
         aria-label="Say hi to wil"
         onClick={handleActivate}
         onKeyDown={handleKeyDown}
-        className="relative z-10 cursor-pointer rounded-[2.5rem] border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-white"
+        className="mascot-stage relative z-10 cursor-pointer rounded-[2.5rem] border-0 p-0 focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-accent"
       >
         <div
           className={`mascot-track ${isHopping ? "mascot-hop" : ""}`}
@@ -84,15 +88,17 @@ export const InteractiveMascot = () => {
           }}
         >
           <div className="mascot-bob">
-            <Image
-              src="/brand/mascot.png"
-              alt=""
-              width={720}
-              height={720}
-              priority
-              className="w-full max-w-[28rem] select-none lg:max-w-[34rem]"
-              draggable={false}
-            />
+            <span className="mascot-colorize">
+              <Image
+                src="/brand/mascot.png"
+                alt=""
+                width={720}
+                height={720}
+                priority
+                className="mascot-image w-full max-w-[28rem] select-none lg:max-w-[34rem]"
+                draggable={false}
+              />
+            </span>
           </div>
         </div>
       </button>
