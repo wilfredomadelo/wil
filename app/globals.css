@@ -1,12 +1,73 @@
 @import "tailwindcss";
 
-:root {
+/* Dark — previous black */
+:root,
+[data-theme="dark"] {
   --navy: #000000;
-  --navy-soft: #0b1224;
+  --navy-soft: #0a0a0a;
   --ink: #f5f7fb;
   --muted: #9aa3b5;
-  --line: #1c2438;
-  --panel: #0e1528;
+  --line: #222222;
+  --panel: #111111;
+  --accent: #ffffff;
+  --accent-strong: #e8e8e8;
+  --accent-hover: #e8e8e8;
+  --button-ink: #000000;
+  --glow-a: rgba(255, 255, 255, 0.06);
+  --glow-b: rgba(255, 255, 255, 0.03);
+  --card-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --mascot-stage: transparent;
+  --mascot-filter: none;
+  --mascot-blend: normal;
+  --mascot-wash: transparent;
+  --background: var(--navy);
+  --foreground: var(--ink);
+  color-scheme: dark;
+}
+
+/* Light — Nebula, mostly white */
+[data-theme="light"] {
+  --navy: #fbf8ff;
+  --navy-soft: #ffffff;
+  --ink: #16132a;
+  --muted: #6b6580;
+  --line: #e8e2f2;
+  --panel: #ffffff;
+  --accent: #7c5cdb;
+  --accent-strong: #6a4bc9;
+  --accent-hover: #9174e6;
+  --button-ink: #ffffff;
+  --glow-a: rgba(196, 181, 253, 0.28);
+  --glow-b: rgba(124, 92, 219, 0.08);
+  --card-shadow: 0 18px 50px rgba(22, 19, 42, 0.06);
+  --mascot-stage: transparent;
+  --mascot-filter: drop-shadow(0 12px 28px rgba(22, 19, 42, 0.16));
+  --mascot-blend: normal;
+  --mascot-wash: transparent;
+  --background: var(--navy);
+  --foreground: var(--ink);
+  color-scheme: light;
+}
+
+/* Moon Light — charcoal + silver, closest to the brand kit */
+[data-theme="moonlight"] {
+  --navy: #1b1c20;
+  --navy-soft: #24262c;
+  --ink: #f3f5f7;
+  --muted: #a8adb8;
+  --line: #2e3138;
+  --panel: #25272d;
+  --accent: #e8eaf0;
+  --accent-strong: #d5d8e0;
+  --accent-hover: #f4f5f8;
+  --button-ink: #1b1c20;
+  --glow-a: rgba(232, 234, 240, 0.1);
+  --glow-b: rgba(232, 234, 240, 0.05);
+  --card-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  --mascot-stage: transparent;
+  --mascot-filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.35));
+  --mascot-blend: normal;
+  --mascot-wash: transparent;
   --background: var(--navy);
   --foreground: var(--ink);
   color-scheme: dark;
@@ -21,14 +82,16 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-panel: var(--panel);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
 }
 
 body {
   background:
-    radial-gradient(900px 480px at 80% 10%, rgba(255, 255, 255, 0.06), transparent 55%),
-    radial-gradient(700px 360px at 12% 0%, rgba(140, 160, 210, 0.08), transparent 50%),
+    radial-gradient(900px 520px at 82% 8%, var(--glow-a), transparent 58%),
+    radial-gradient(720px 380px at 8% 0%, var(--glow-b), transparent 52%),
     var(--navy);
   color: var(--foreground);
   font-family: var(--font-body), system-ui, sans-serif;
@@ -39,13 +102,35 @@ a {
 }
 
 .btn-solid {
-  background-color: #ffffff;
-  color: #000000;
+  background-color: var(--accent);
+  color: var(--button-ink);
 }
 
 .btn-solid:hover {
-  background-color: #e8e8e8;
-  color: #000000;
+  background-color: var(--accent-hover);
+  color: var(--button-ink);
+}
+
+.auth-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--card-shadow);
+}
+
+.mascot-stage {
+  background: var(--mascot-stage);
+}
+
+.mascot-colorize {
+  display: inline-block;
+  isolation: isolate;
+  background: var(--mascot-wash);
+  line-height: 0;
+}
+
+.mascot-image {
+  filter: var(--mascot-filter);
+  mix-blend-mode: var(--mascot-blend);
 }
 
 .mascot-track {
