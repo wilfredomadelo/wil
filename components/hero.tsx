@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { InteractiveMascot } from "@/components/interactive-mascot";
 
-type HeroProps = {
-  isSignedIn?: boolean;
-};
-
-export const Hero = ({ isSignedIn = false }: HeroProps) => {
+export const Hero = () => {
   return (
     <section
       className="relative overflow-hidden"
@@ -28,10 +24,10 @@ export const Hero = ({ isSignedIn = false }: HeroProps) => {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href={isSignedIn ? "/home" : "/signup"}
+              href="/signup"
               className="btn-solid inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
             >
-              {isSignedIn ? "Go to home" : "Get started"}
+              Get started
             </Link>
             <p className="text-sm text-muted">Landing preview · v1</p>
           </div>

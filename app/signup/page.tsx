@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { getWilSessionUser } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Create account — wil",
 };
 
-const SignupPage = () => {
+const SignupPage = async () => {
+  const user = await getWilSessionUser();
+  if (user) {
+    redirect("/");
+  }
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader

@@ -42,7 +42,7 @@ export const AuthForm = ({ mode }: AuthFormProps) => {
         return;
       }
 
-      router.push("/home");
+      router.push("/");
       router.refresh();
     } catch {
       setError("Could not reach wil. Try again.");
