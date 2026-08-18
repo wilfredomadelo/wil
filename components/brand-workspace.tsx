@@ -92,7 +92,7 @@ export const BrandWorkspace = ({ brands, billing }: BrandWorkspaceProps) => {
                   <td className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`${href(`/brands/${brand.id}`)}?tab=kit`}
+                        href={href(`/brands/${brand.id}`)}
                         className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-navy-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                       >
                         Edit

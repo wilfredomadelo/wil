@@ -23,10 +23,10 @@ type BrandStudioProps = {
 };
 
 const tabs = [
-  { id: "kit", label: "Kit" },
-  { id: "social", label: "Social" },
-  { id: "calendar", label: "Calendar" },
   { id: "plans", label: "Content plan" },
+  { id: "calendar", label: "Calendar" },
+  { id: "social", label: "Social" },
+  { id: "kit", label: "Kit" },
   { id: "guide", label: "How to use" },
 ] as const;
 
@@ -45,14 +45,24 @@ export const BrandStudio = ({
   const router = useRouter();
   const href = useAppHref();
   const searchParams = useSearchParams();
-  const tab = isTabId(searchParams.get("tab")) ? searchParams.get("tab")! : "kit";
+  const tab = isTabId(searchParams.get("tab"))
+    ? searchParams.get("tab")!
+    : "plans";
 
   const handleSelectTab = (nextTab: TabId) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", nextTab);
-    router.replace(`${href(`/brands/${brand.id}`)}?${params.toString()}`, {
-      scroll: false,
-    });
+    if (nextTab === "plans") {
+      params.delete("tab");
+    } else {
+      params.set("tab", nextTab);
+    }
+    const query = params.toString();
+    router.replace(
+      query
+        ? `${href(`/brands/${brand.id}`)}?${query}`
+        : href(`/brands/${brand.id}`),
+      { scroll: false },
+    );
   };
 
   const pageOptions = (() => {
