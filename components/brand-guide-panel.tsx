@@ -1,22 +1,12 @@
 const tabs = [
   {
-    id: "kit",
-    label: "Kit",
-    summary: "Define the brand so AI and the team stay consistent.",
+    id: "plans",
+    label: "Content plan",
+    summary: "Generate and edit the actual posts you will publish.",
     steps: [
-      "Fill Identity: name, type, industry, tagline, Facebook page, vision, and mission.",
-      "Set Colors, Design notes, and Voice / sample copy.",
-      "Save the kit before generating content.",
-    ],
-  },
-  {
-    id: "social",
-    label: "Social",
-    summary: "Store handles and profile links AI can reference in plans.",
-    steps: [
-      "Add each platform with handle and optional profile URL.",
-      "Use notes for channel-specific rules (tone, posting windows).",
-      "Connect Facebook when you are ready to publish.",
+      "Finish Kit and Social so the generator has brand rules.",
+      "Create a plan with days, mix, and a brief.",
+      "Calendar reflects planned dates after posts exist.",
     ],
   },
   {
@@ -30,22 +20,32 @@ const tabs = [
     ],
   },
   {
-    id: "plans",
-    label: "Content plan",
-    summary: "Generate and edit the actual posts you will publish.",
+    id: "social",
+    label: "Social",
+    summary: "Store handles and profile links AI can reference in plans.",
     steps: [
-      "Finish Kit and Social so the generator has brand rules.",
-      "Create a plan with days, mix, and a brief.",
-      "Calendar reflects planned dates after posts exist.",
+      "Add each platform with handle and optional profile URL.",
+      "Use notes for channel-specific rules (tone, posting windows).",
+      "Connect Facebook when you are ready to publish.",
+    ],
+  },
+  {
+    id: "kit",
+    label: "Kit",
+    summary: "Define the brand so AI and the team stay consistent.",
+    steps: [
+      "Fill Identity: name, type, industry, tagline, Facebook page, vision, and mission.",
+      "Set Colors, Design notes, and Voice / sample copy.",
+      "Save the kit before generating content.",
     ],
   },
 ] as const;
 
 const flow = [
-  { step: "1", label: "Kit", detail: "Brand rules + voice + colors" },
-  { step: "2", label: "Social", detail: "Handles AI should know" },
-  { step: "3", label: "Content plan", detail: "Generate & refine posts" },
-  { step: "4", label: "Calendar", detail: "Review schedule & publish" },
+  { step: "1", label: "Content plan", detail: "Generate & refine posts" },
+  { step: "2", label: "Calendar", detail: "Review schedule & publish" },
+  { step: "3", label: "Social", detail: "Handles AI should know" },
+  { step: "4", label: "Kit", detail: "Brand rules + voice + colors" },
 ] as const;
 
 export const BrandGuidePanel = () => (
@@ -55,8 +55,8 @@ export const BrandGuidePanel = () => (
         How to use this brand
       </h2>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Work left to right: set the kit, add social handles, generate a content
-        plan, then manage timing from Calendar.
+        Work left to right: generate a content plan, review Calendar, keep
+        Social handles current, and refine the Kit when the brand changes.
       </p>
       <ol className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {flow.map((item, index) => (
