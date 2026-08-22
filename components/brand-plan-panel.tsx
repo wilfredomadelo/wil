@@ -19,9 +19,10 @@ import {
   MAX_POSTS_PER_DAY,
   MIN_PLAN_DAYS,
   MIN_POSTS_PER_DAY,
+  EMPTY_BRAND_CONTENT_MIX,
+  MIX_KIND_META,
   PLAN_PLATFORMS,
   clampPostsPerDay,
-  defaultBrandContentMix,
   planTotalPosts,
   type BrandContentMix,
 } from "@/lib/plan-options";
@@ -93,7 +94,35 @@ const todayIso = () => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
-const buildForm = (hasLogo: boolean): PlanForm => {
+const formatPlanDate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) {
+    return iso;
+  }
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const planEndDateIso = (startIso: string, days: number) => {
+  const [year, month, day] = isoParts(startIso);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + Math.max(1, days) - 1);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const isoParts = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return [year || 1970, month || 1, day || 1] as const;
+};
+
+const stepperButtonClass =
+  "flex size-9 shrink-0 items-center justify-center rounded-lg border border-line text-lg font-semibold leading-none text-ink hover:bg-navy-soft disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+const buildForm = (): PlanForm => {
   const days = 7;
   const postsPerDay = 1;
   return {
@@ -104,9 +133,11 @@ const buildForm = (hasLogo: boolean): PlanForm => {
     startDate: todayIso(),
     brief: "",
     imageModelValue: DEFAULT_IMAGE_AI,
-    ...defaultBrandContentMix(planTotalPosts(days, postsPerDay), !hasLogo),
+    ...EMPTY_BRAND_CONTENT_MIX,
   };
 };
+
+type MixKey = keyof BrandContentMix;
 
 const planLabel = (plan: BrandPlan) => {
   const named = plan.name.trim();
@@ -203,6 +234,64 @@ const ImageAiSelect = ({
   );
 };
 
+const CountStepper = ({
+  id,
+  value,
+  min,
+  max,
+  onChange,
+  ariaLabel,
+}: {
+  id: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  ariaLabel: string;
+}) => {
+  const handleChange = (raw: string) => {
+    const parsed = Math.round(Number(raw));
+    if (!Number.isFinite(parsed)) {
+      onChange(min);
+      return;
+    }
+    onChange(Math.min(max, Math.max(min, parsed)));
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        aria-label={`Decrease ${ariaLabel}`}
+        disabled={value <= min}
+        onClick={() => onChange(value - 1)}
+        className={stepperButtonClass}
+      >
+        −
+      </button>
+      <input
+        id={id}
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        aria-label={ariaLabel}
+        onChange={(event) => handleChange(event.target.value)}
+        className={`${fieldClassName} text-center tabular-nums`}
+      />
+      <button
+        type="button"
+        aria-label={`Increase ${ariaLabel}`}
+        disabled={value >= max}
+        onClick={() => onChange(value + 1)}
+        className={stepperButtonClass}
+      >
+        +
+      </button>
+    </div>
+  );
+};
+
 export const BrandPlanPanel = ({
   brandId,
   hasLogo,
@@ -224,14 +313,14 @@ export const BrandPlanPanel = ({
   const planParam = searchParams.get("plan")?.trim() ?? "";
   const showAllPlans = !planParam || planParam === "all";
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGenerateConfirmOpen, setIsGenerateConfirmOpen] = useState(false);
   const [form, setForm] = useState<PlanForm>(() => {
-    const initial = buildForm(hasLogo);
+    const initial = buildForm();
     const days = Math.min(initial.days, Math.min(MAX_PLAN_DAYS, Math.max(MIN_PLAN_DAYS, maxPlanDays)));
     return {
       ...initial,
       days,
       imageModelValue: defaultImageAi,
-      ...defaultBrandContentMix(planTotalPosts(days, initial.postsPerDay), !hasLogo),
     };
   });
   const [planSearch, setPlanSearch] = useState("");
@@ -267,6 +356,16 @@ export const BrandPlanPanel = ({
 
   const total = planTotalPosts(form.days, form.postsPerDay);
   const mixSum = form.text + form.image + form.video + form.infographic;
+  const remaining = total - mixSum;
+  const visualCount = form.image + form.video + form.infographic;
+  const selectedPlatforms = PLAN_PLATFORMS.filter((item) =>
+    form.platforms.includes(item.value),
+  );
+  const imageAiLabel =
+    IMAGE_AI_MODELS.find(
+      (item) => item.value === safeImageModelValue(form.imageModelValue),
+    )?.label ?? "Image AI";
+  const planEndDate = planEndDateIso(form.startDate, form.days);
 
   const setQueryPatch = (patch: Record<string, string | null | undefined>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -385,33 +484,64 @@ export const BrandPlanPanel = ({
       ...current,
       days: nextDays,
       postsPerDay,
-      ...defaultBrandContentMix(
-        planTotalPosts(nextDays, postsPerDay),
-        !hasLogo,
-      ),
     }));
+  };
+
+  const handleMixStep = (key: MixKey, delta: number) => {
+    setForm((current) => {
+      const nextTotal = planTotalPosts(current.days, current.postsPerDay);
+      const currentSum =
+        current.text + current.image + current.video + current.infographic;
+      const nextValue = current[key] + delta;
+      if (nextValue < 0) {
+        return current;
+      }
+      if (delta > 0 && currentSum >= nextTotal) {
+        return current;
+      }
+      return { ...current, [key]: nextValue };
+    });
+  };
+
+  const handleMixInput = (key: MixKey, raw: string) => {
+    setForm((current) => {
+      const nextTotal = planTotalPosts(current.days, current.postsPerDay);
+      const others =
+        current.text +
+        current.image +
+        current.video +
+        current.infographic -
+        current[key];
+      const parsed = Math.max(0, Math.round(Number(raw) || 0));
+      const maxForKey = Math.max(0, nextTotal - others);
+      return { ...current, [key]: Math.min(parsed, maxForKey) };
+    });
   };
 
   const handleOpenModal = () => {
     setError("");
     setErrorCode("");
-    const initial = buildForm(hasLogo);
+    setIsGenerateConfirmOpen(false);
+    const initial = buildForm();
     const days = Math.min(initial.days, planDayMax);
     setForm({
       ...initial,
       days,
       imageModelValue: defaultImageAi,
-      ...defaultBrandContentMix(
-        planTotalPosts(days, initial.postsPerDay),
-        !hasLogo,
-      ),
     });
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
+    if (isSubmitting || isGenerateConfirmOpen) {
+      return;
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleCloseGenerateConfirm = () => {
     if (!isSubmitting) {
-      setIsModalOpen(false);
+      setIsGenerateConfirmOpen(false);
     }
   };
 
@@ -427,7 +557,7 @@ export const BrandPlanPanel = ({
     });
   };
 
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+  const handleCreate = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setErrorCode("");
@@ -436,9 +566,19 @@ export const BrandPlanPanel = ({
       return;
     }
     if (mixSum !== total) {
-      setError(`Mix must sum to ${total} posts.`);
+      setError(
+        remaining > 0
+          ? `Assign ${remaining} more ${remaining === 1 ? "post" : "posts"} so the mix equals ${total}.`
+          : `Mix is ${Math.abs(remaining)} over. Remove posts until it equals ${total}.`,
+      );
       return;
     }
+    setIsGenerateConfirmOpen(true);
+  };
+
+  const handleConfirmGenerate = async () => {
+    setError("");
+    setErrorCode("");
     setIsSubmitting(true);
     try {
       const response = await fetch(`/api/brands/${brandId}/plans`, {
@@ -495,10 +635,12 @@ export const BrandPlanPanel = ({
               "Plan created, but image generation failed. You can retry from Posts.",
           );
           setErrorCode(assetsData.code ?? "");
+          setIsGenerateConfirmOpen(false);
           return;
         }
       }
 
+      setIsGenerateConfirmOpen(false);
       setIsModalOpen(false);
       router.refresh();
     } catch {
@@ -1764,60 +1906,110 @@ export const BrandPlanPanel = ({
         onClose={handleCloseModal}
         size="tall"
       >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <FormField htmlFor="planName" label="Plan name">
-            <input
-              id="planName"
-              required
-              maxLength={120}
-              value={form.name}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, name: event.target.value }))
-              }
-              className={fieldClassName}
-              placeholder="e.g. March launch week"
-            />
-          </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField htmlFor="planDays" label={`Days (${form.days})`}>
+        <form onSubmit={handleCreate} className="space-y-6">
+          <p className="text-sm text-muted">
+            Set the window, then type how many posts of each type to create.
+            Nothing is generated until you confirm.
+          </p>
+
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              Plan
+            </h3>
+            <FormField htmlFor="planName" label="Plan name">
               <input
-                id="planDays"
-                type="range"
-                min={MIN_PLAN_DAYS}
-                max={planDayMax}
-                value={form.days}
+                id="planName"
+                required
+                maxLength={120}
+                value={form.name}
                 onChange={(event) =>
-                  handleScaleMix(
-                    Number(event.target.value) || 1,
-                    form.postsPerDay,
-                  )
+                  setForm((current) => ({ ...current, name: event.target.value }))
                 }
-                className="w-full"
-                aria-valuenow={form.days}
+                className={fieldClassName}
+                placeholder="e.g. March launch week"
               />
             </FormField>
             <FormField
-              htmlFor="planPostsPerDay"
-              label={`Posts per day (${form.postsPerDay})`}
-              // hint={`Total: ${total}`}
+              htmlFor="planBrief"
+              label="Theme / brief"
+              hint="What this week should say. Offers, audience, tone, or a campaign hook."
             >
-              <input
-                id="planPostsPerDay"
-                type="range"
-                min={MIN_POSTS_PER_DAY}
-                max={MAX_POSTS_PER_DAY}
-                value={form.postsPerDay}
+              <textarea
+                id="planBrief"
+                rows={3}
+                value={form.brief}
                 onChange={(event) =>
-                  handleScaleMix(
-                    form.days,
-                    clampPostsPerDay(Number(event.target.value)),
-                  )
+                  setForm((current) => ({
+                    ...current,
+                    brief: event.target.value,
+                  }))
                 }
-                className="w-full"
-                aria-valuenow={form.postsPerDay}
+                className={fieldClassName}
+                placeholder="e.g. Launch week: product benefits, social proof, and a weekend promo"
               />
             </FormField>
-          </div>
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              Schedule
+            </h3>
+            <FormField htmlFor="planStart" label="Start date">
+              <input
+                id="planStart"
+                type="date"
+                required
+                value={form.startDate}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    startDate: event.target.value,
+                  }))
+                }
+                className={fieldClassName}
+              />
+            </FormField>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField htmlFor="planDays" label="Duration">
+                <CountStepper
+                  id="planDays"
+                  value={form.days}
+                  min={MIN_PLAN_DAYS}
+                  max={planDayMax}
+                  ariaLabel="Plan duration in days"
+                  onChange={(days) =>
+                    handleScaleMix(days, form.postsPerDay)
+                  }
+                />
+              </FormField>
+              <FormField htmlFor="planPostsPerDay" label="Posts per day">
+                <CountStepper
+                  id="planPostsPerDay"
+                  value={form.postsPerDay}
+                  min={MIN_POSTS_PER_DAY}
+                  max={MAX_POSTS_PER_DAY}
+                  ariaLabel="Posts per day"
+                  onChange={(postsPerDay) =>
+                    handleScaleMix(form.days, clampPostsPerDay(postsPerDay))
+                  }
+                />
+              </FormField>
+            </div>
+            <div className="rounded-2xl border border-line bg-navy-soft px-4 py-3 text-sm text-ink">
+              <p className="font-semibold">
+                {total} {total === 1 ? "post" : "posts"}
+              </p>
+              <p className="mt-0.5 text-xs text-muted">
+                {formatPlanDate(form.startDate)}
+                {form.days > 1 ? ` – ${formatPlanDate(planEndDate)}` : ""}
+                {" · "}
+                {form.days} {form.days === 1 ? "day" : "days"}
+                {" · "}
+                {form.postsPerDay} / day
+              </p>
+            </div>
+          </section>
+
           <fieldset>
             <legend className="mb-1.5 block text-sm font-semibold text-ink">
               Platforms
@@ -1843,95 +2035,206 @@ export const BrandPlanPanel = ({
               })}
             </div>
           </fieldset>
-          <FormField htmlFor="planStart" label="Start date">
-            <input
-              id="planStart"
-              type="date"
-              required
-              value={form.startDate}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  startDate: event.target.value,
-                }))
-              }
-              className={fieldClassName}
-            />
-          </FormField>
-          <FormField htmlFor="planBrief" label="Theme / brief">
-            <textarea
-              id="planBrief"
-              rows={3}
-              value={form.brief}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, brief: event.target.value }))
-              }
-              className={fieldClassName}
-            />
-          </FormField>
-          <FormField
-            htmlFor="planImageAi"
-            label="Image AI"
-            hint="Pollinations, Cloudflare, and Hugging Face stills are unlimited. Gemini uses your monthly image allowance."
-          >
-            <ImageAiSelect
-              id="planImageAi"
-              value={form.imageModelValue}
-              onChange={(imageModelValue) =>
-                setForm((current) => ({ ...current, imageModelValue }))
-              }
-              ariaLabel="Image AI model for this plan"
-              allowGemini={allowGemini}
-            />
-          </FormField>
-          <fieldset className="rounded-xl border border-line p-3">
-            <legend className="mb-1.5 px-1 text-sm font-semibold text-ink">
-              Mix (sum to {total})
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-ink">
+              Content mix
             </legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {(["text", "image", "video", "infographic"] as const).map(
-                (key) => (
-                  <label key={key} className="block text-sm">
-                    <span className="capitalize text-muted">{key}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={total}
-                      value={form[key]}
-                      aria-label={`${key} post count`}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          [key]: Math.max(
-                            0,
-                            Math.min(total, Number(event.target.value) || 0),
-                          ),
-                        }))
-                      }
-                      className={fieldClassName}
-                    />
-                  </label>
-                ),
-              )}
+            <p className="mb-3 text-xs text-muted">
+              Every slot starts at 0. Add the number of text, image, video, and
+              infographic posts you want. They must add up to {total}.
+            </p>
+            <div
+              className="mb-3 h-1.5 overflow-hidden rounded-full bg-line"
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={total}
+              aria-valuenow={mixSum}
+              aria-label="Assigned posts"
+            >
+              <div
+                className={`h-full rounded-full ${
+                  mixSum === total
+                    ? "bg-accent"
+                    : remaining < 0
+                      ? "bg-red-400"
+                      : "bg-accent/70"
+                }`}
+                style={{
+                  width: `${Math.min(100, total === 0 ? 0 : (mixSum / total) * 100)}%`,
+                }}
+              />
             </div>
             <p
-              className={`mt-2 text-xs ${mixSum === total ? "text-muted" : "text-red-200"}`}
+              className={`mb-3 text-xs font-medium ${
+                mixSum === total ? "text-ink" : remaining < 0 ? "text-red-200" : "text-muted"
+              }`}
+              aria-live="polite"
             >
-              Sum: {mixSum} / {total}
+              {mixSum === total
+                ? `Mix matches ${total} posts.`
+                : remaining > 0
+                  ? `${remaining} left to assign`
+                  : `${Math.abs(remaining)} over — remove some posts`}
             </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {MIX_KIND_META.map((kind) => {
+                const value = form[kind.key];
+                const canIncrease = remaining > 0;
+                return (
+                  <div
+                    key={kind.key}
+                    className={`rounded-2xl border p-3 ${
+                      value > 0
+                        ? "border-accent/40 bg-navy-soft"
+                        : "border-line"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-ink">{kind.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                      {kind.hint}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label={`Decrease ${kind.label} posts`}
+                        disabled={value <= 0}
+                        onClick={() => handleMixStep(kind.key, -1)}
+                        className={stepperButtonClass}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={total}
+                        value={value}
+                        aria-label={`${kind.label} post count`}
+                        onChange={(event) =>
+                          handleMixInput(kind.key, event.target.value)
+                        }
+                        className={`${fieldClassName} text-center tabular-nums`}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Increase ${kind.label} posts`}
+                        disabled={!canIncrease}
+                        onClick={() => handleMixStep(kind.key, 1)}
+                        className={stepperButtonClass}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </fieldset>
-          {error ? <UpgradeAlert error={error} code={errorCode} /> : null}
-          <button
-            type="submit"
-            disabled={
-              isSubmitting || mixSum !== total || form.platforms.length < 1
-            }
-            className="btn-solid rounded-full px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-          >
-            {isSubmitting ? "Generating…" : "Generate plan"}
-          </button>
+
+          {visualCount > 0 ? (
+            <FormField
+              htmlFor="planImageAi"
+              label="Image AI"
+              hint="Used for image, video, and infographic posts. Pollinations, Cloudflare, and Hugging Face stills are unlimited. Gemini uses your monthly image allowance."
+            >
+              <ImageAiSelect
+                id="planImageAi"
+                value={form.imageModelValue}
+                onChange={(imageModelValue) =>
+                  setForm((current) => ({ ...current, imageModelValue }))
+                }
+                ariaLabel="Image AI model for this plan"
+                allowGemini={allowGemini}
+              />
+            </FormField>
+          ) : null}
+
+          {!hasLogo && visualCount > 0 ? (
+            <p className="rounded-xl border border-line bg-navy-soft px-3 py-2 text-xs text-muted">
+              This brand has no logo in the kit. Infographics and images may
+              look less branded until you add one.
+            </p>
+          ) : null}
+
+          {error && !isGenerateConfirmOpen ? (
+            <UpgradeAlert error={error} code={errorCode} />
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                mixSum !== total ||
+                form.platforms.length < 1
+              }
+              className="btn-solid rounded-full px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            >
+              Generate plan
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseModal}
+              disabled={isSubmitting}
+              className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-ink hover:bg-navy-soft disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            >
+              Cancel
+            </button>
+          </div>
         </form>
       </Modal>
+      <ConfirmModal
+        title="Generate this plan?"
+        description={`Create ${total} ${total === 1 ? "post" : "posts"} for “${form.name.trim() || "Untitled plan"}”? This can take a minute.`}
+        confirmLabel="Generate plan"
+        busyLabel="Generating your plan…"
+        busyTitle="Wil is on it"
+        busyDescription="Drafting posts and media. Keep this tab open."
+        busyIllustrationSrc="/brand/mascot-loading.gif"
+        isOpen={isGenerateConfirmOpen}
+        isBusy={isSubmitting}
+        error={isGenerateConfirmOpen ? error : ""}
+        layer="overlay"
+        onClose={handleCloseGenerateConfirm}
+        onConfirm={() => void handleConfirmGenerate()}
+      >
+        <dl className="mt-4 space-y-2 rounded-2xl border border-line bg-navy-soft px-4 py-3 text-sm">
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Schedule</dt>
+            <dd className="text-right text-ink">
+              {formatPlanDate(form.startDate)}
+              {form.days > 1 ? ` – ${formatPlanDate(planEndDate)}` : ""}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Cadence</dt>
+            <dd className="text-right text-ink">
+              {form.days} {form.days === 1 ? "day" : "days"} · {form.postsPerDay}{" "}
+              / day · {total} {total === 1 ? "post" : "posts"}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Platforms</dt>
+            <dd className="text-right text-ink">
+              {selectedPlatforms.map((item) => item.label).join(", ") || "None"}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Mix</dt>
+            <dd className="text-right text-ink">
+              {MIX_KIND_META.map((kind) => `${form[kind.key]} ${kind.label.toLowerCase()}`).join(
+                " · ",
+              )}
+            </dd>
+          </div>
+          {visualCount > 0 ? (
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Image AI</dt>
+              <dd className="text-right text-ink">{imageAiLabel}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </ConfirmModal>
       <ConfirmModal
         title={confirmSpec?.title ?? ""}
         description={confirmSpec?.description ?? ""}

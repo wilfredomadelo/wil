@@ -109,6 +109,36 @@ export type BrandContentMix = {
   infographic: number;
 };
 
+export const EMPTY_BRAND_CONTENT_MIX: BrandContentMix = {
+  text: 0,
+  image: 0,
+  video: 0,
+  infographic: 0,
+};
+
+export const MIX_KIND_META = [
+  {
+    key: "text",
+    label: "Text",
+    hint: "Caption-only posts. No generated media.",
+  },
+  {
+    key: "image",
+    label: "Image",
+    hint: "Still photos for feed and stories.",
+  },
+  {
+    key: "video",
+    label: "Video",
+    hint: "Short-form clips. Slowest to generate.",
+  },
+  {
+    key: "infographic",
+    label: "Infographic",
+    hint: "Branded graphics with copy on the image.",
+  },
+] as const;
+
 export const clampPostsPerDay = (value: number): number =>
   Math.min(MAX_POSTS_PER_DAY, Math.max(MIN_POSTS_PER_DAY, Math.round(value) || 1));
 
